@@ -108,9 +108,65 @@ func runSchemaTypesCmd(cmd *cobra.Command, args []string) error {
 	return outputResult(response)
 }
 
+// SCHEMA CREATE-TYPE subcommand
+var schemaCreateTypeCmd = &cobra.Command{
+	Use:   "create-type",
+	Short: "Create a new object type in a schema",
+	Long: `Create a new object type in the specified schema.
+	
+This creates a new object type that can have instances created. Object types
+define the structure and attributes for assets of that type.`,
+	Example: `  # Create an AI Workstation object type
+  assets schema create-type --schema 7 --name "AI Workstation" --description "High-performance workstations for AI/ML development" --icon "143"`,
+	RunE: runSchemaCreateTypeCmd,
+}
+
+var (
+	createTypeSchema      string
+	createTypeName        string
+	createTypeDescription string
+	createTypeIconID      string
+	createTypeParent      string
+)
+
+func init() {
+	schemaCreateTypeCmd.Flags().StringVar(&createTypeSchema, "schema", "", "Schema ID where the object type will be created (required)")
+	schemaCreateTypeCmd.Flags().StringVar(&createTypeName, "name", "", "Name of the new object type (required)")
+	schemaCreateTypeCmd.Flags().StringVar(&createTypeDescription, "description", "", "Description of the object type")
+	schemaCreateTypeCmd.Flags().StringVar(&createTypeIconID, "icon", "", "Icon ID for the object type (optional)")
+	schemaCreateTypeCmd.Flags().StringVar(&createTypeParent, "parent", "", "Parent object type ID for inheritance (optional)")
+	
+	schemaCreateTypeCmd.MarkFlagRequired("schema")
+	schemaCreateTypeCmd.MarkFlagRequired("name")
+}
+
+func runSchemaCreateTypeCmd(cmd *cobra.Command, args []string) error {
+	client, err := getClient()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// Convert parent string to pointer if provided
+	var parentPtr *string
+	if createTypeParent != "" {
+		parentPtr = &createTypeParent
+	}
+
+	response, err := client.CreateObjectType(ctx, createTypeSchema, createTypeName, createTypeDescription, createTypeIconID, parentPtr)
+	if err != nil {
+		return fmt.Errorf("failed to create object type: %w", err)
+	}
+
+	return outputResult(response)
+}
+
 func init() {
 	// Add subcommands to schema command
 	schemaCmd.AddCommand(schemaListCmd)
 	schemaCmd.AddCommand(schemaGetCmd)
 	schemaCmd.AddCommand(schemaTypesCmd)
+	schemaCmd.AddCommand(schemaCreateTypeCmd)
 }

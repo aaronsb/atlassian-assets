@@ -334,3 +334,38 @@ func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit i
 		"query":   query,
 	}), nil
 }
+
+// CreateObjectType creates a new object type in the specified schema
+func (ac *AssetsClient) CreateObjectType(ctx context.Context, schemaID, name, description, iconID string, parentObjectTypeID *string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	payload := &models.ObjectTypePayloadScheme{
+		Name:               name,
+		Description:        description,
+		IconID:             iconID,
+		ObjectSchemaID:     schemaID,
+		Inherited:          false,
+		AbstractObjectType: false,
+	}
+
+	// Set parent object type if provided
+	if parentObjectTypeID != nil {
+		payload.ParentObjectTypeID = *parentObjectTypeID
+	}
+
+	objectType, response, err := ac.assetsAPI.ObjectType.Create(ctx, ac.workspaceID, payload)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to create object type: %w", err)), nil
+	}
+
+	if response.Code != 201 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_type": objectType,
+		"message":     fmt.Sprintf("Successfully created object type '%s' in schema %s", name, schemaID),
+	}), nil
+}
