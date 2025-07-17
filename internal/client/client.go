@@ -341,6 +341,11 @@ func (ac *AssetsClient) CreateObjectType(ctx context.Context, schemaID, name, de
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
+	// Provide default icon if none specified (API now requires iconId)
+	if iconID == "" {
+		iconID = "1" // Default generic icon
+	}
+
 	payload := &models.ObjectTypePayloadScheme{
 		Name:               name,
 		Description:        description,
