@@ -179,6 +179,58 @@ func (ac *AssetsClient) ListSchemas(ctx context.Context) (*Response, error) {
 	}), nil
 }
 
+// CreateSchema creates a new object schema
+func (ac *AssetsClient) CreateSchema(ctx context.Context, name, description string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Create schema payload with proper structure
+	payload := &models.ObjectSchemaPayloadScheme{
+		Name:            name,
+		ObjectSchemaKey: generateSchemaKey(name),
+	}
+	
+	if description != "" {
+		payload.Description = description
+	}
+
+	schema, response, err := ac.assetsAPI.ObjectSchema.Create(ctx, ac.workspaceID, payload)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to create schema: %w", err)), nil
+	}
+
+	if response.Code != 201 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(schema), nil
+}
+
+// generateSchemaKey creates a schema key from the name
+func generateSchemaKey(name string) string {
+	// Simple key generation - uppercase and replace spaces with underscores
+	key := ""
+	for _, char := range name {
+		if char >= 'a' && char <= 'z' {
+			key += string(char - 32) // Convert to uppercase
+		} else if char >= 'A' && char <= 'Z' {
+			key += string(char)
+		} else if char >= '0' && char <= '9' {
+			key += string(char)
+		} else if char == ' ' || char == '-' {
+			key += "_"
+		}
+	}
+	
+	// Limit to reasonable length
+	if len(key) > 10 {
+		key = key[:10]
+	}
+	
+	return key
+}
+
 // GetSchema gets details of a specific schema
 func (ac *AssetsClient) GetSchema(ctx context.Context, schemaID string) (*Response, error) {
 	if ac.workspaceID == "" {
@@ -225,22 +277,16 @@ func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit 
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
-	// Use structured search without Query to get all objects in schema
-	searchParams := &models.ObjectSearchParamsScheme{
-		ObjectSchemaID:    schemaID,
-		ResultPerPage:     limit,
-		Page:              1,
-		IncludeAttributes: true,
-		// Note: No Query field means get all objects in the schema
-	}
+	// Use AQL query to get all objects in schema (same working approach as SearchObjects)
+	query := fmt.Sprintf("objectSchemaId = %s", schemaID)
 	
-	fmt.Printf("DEBUG: Calling Search with workspaceID=%s, objectSchemaID=%s, limit=%d\n", ac.workspaceID, schemaID, limit)
-	objects, response, err := ac.assetsAPI.Object.Search(ctx, ac.workspaceID, searchParams)
+	fmt.Printf("DEBUG: Calling Filter with workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
+	objects, response, err := ac.assetsAPI.Object.Filter(ctx, ac.workspaceID, query, true, limit, 0)
 	
 	if objects != nil {
-		fmt.Printf("DEBUG: Search returned err=%v, response.Code=%d, objects.TotalFilterCount=%d\n", err, response.Code, objects.TotalFilterCount)
+		fmt.Printf("DEBUG: Filter returned err=%v, response.Code=%d, objects.Total=%d\n", err, response.Code, objects.Total)
 	} else {
-		fmt.Printf("DEBUG: Search returned err=%v, response.Code=%d, objects=nil\n", err, response.Code)
+		fmt.Printf("DEBUG: Filter returned err=%v, response.Code=%d, objects=nil\n", err, response.Code)
 	}
 	
 	if err != nil {
@@ -251,21 +297,12 @@ func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit 
 		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
 	}
 
-	if objects == nil {
-		return NewSuccessResponse(map[string]interface{}{
-			"objects": []interface{}{},
-			"total":   0,
-			"schema":  schemaID,
-			"method":  "structured_search",
-			"error":   "objects response is nil",
-		}), nil
-	}
-
 	return NewSuccessResponse(map[string]interface{}{
-		"objects": objects.ObjectEntries,
-		"total":   objects.TotalFilterCount,
+		"objects": objects.Values,
+		"total":   objects.Total,
 		"schema":  schemaID,
-		"method":  "structured_search",
+		"method":  "aql_filter",
+		"query":   query,
 	}), nil
 }
 

@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ctreminiom/go-atlassian/v2/pkg/infra/models"
 	"github.com/aaronsb/atlassian-assets/internal/client"
-	"github.com/aaronsb/atlassian-assets/internal/hints"
 )
 
 // EXTRACT command with subcommands for attribute extraction
@@ -141,12 +140,12 @@ func extractFromObjectInstance(ctx context.Context, client *client.AssetsClient,
 		},
 	}
 	
-	response := NewSuccessResponse(result)
+	successResponse := NewSuccessResponse(result)
 	
 	// Add contextual hints
-	enhancedResponse := addNextStepHints(response, "extract_attributes", map[string]interface{}{
+	enhancedResponse := addNextStepHints(successResponse, "extract_attributes", map[string]interface{}{
 		"source_type":      "object_instance",
-		"success":          response.Success,
+		"success":          successResponse.Success,
 		"has_references":   extractResolveRefs,
 		"attribute_count":  len(extractedAttributes),
 	})
@@ -209,12 +208,12 @@ func extractFromObjectTypeSchema(ctx context.Context, client *client.AssetsClien
 		},
 	}
 	
-	response := NewSuccessResponse(result)
+	successResponse := NewSuccessResponse(result)
 	
 	// Add contextual hints
-	enhancedResponse := addNextStepHints(response, "extract_attributes", map[string]interface{}{
+	enhancedResponse := addNextStepHints(successResponse, "extract_attributes", map[string]interface{}{
 		"source_type":      "object_type_schema",
-		"success":          response.Success,
+		"success":          successResponse.Success,
 		"has_references":   extractResolveRefs,
 		"attribute_count":  len(extractedAttributes),
 	})
@@ -329,40 +328,6 @@ func resolveAttributeReference(ctx context.Context, client *client.AssetsClient,
 	return nil, fmt.Errorf("no reference object type ID found")
 }
 
-// Helper function to add contextual hints using centralized system
-func addNextStepHints(response interface{}, commandType string, context map[string]interface{}) interface{} {
-	// Convert response to map for modification
-	responseMap := make(map[string]interface{})
-	
-	// Handle different response types
-	switch r := response.(type) {
-	case *Response:
-		responseMap["success"] = r.Success
-		responseMap["data"] = r.Data
-		if r.Error != "" {
-			responseMap["error"] = r.Error
-		}
-		// Add success to context for hint evaluation
-		context["success"] = r.Success
-	case map[string]interface{}:
-		responseMap = r
-		// Add success to context for hint evaluation
-		if success, ok := r["success"].(bool); ok {
-			context["success"] = success
-		}
-	default:
-		return response // Return as-is if we can't parse
-	}
-	
-	// Get contextual hints from centralized system
-	contextualHints := hints.GetContextualHints(commandType, context)
-	
-	if len(contextualHints) > 0 {
-		responseMap["next_steps"] = contextualHints
-	}
-	
-	return responseMap
-}
 
 func init() {
 	extractCmd.AddCommand(extractAttributesCmd)

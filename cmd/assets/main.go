@@ -66,6 +66,7 @@ func init() {
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(resolveCmd)
 	rootCmd.AddCommand(workflowsCmd)
+	rootCmd.AddCommand(testCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
