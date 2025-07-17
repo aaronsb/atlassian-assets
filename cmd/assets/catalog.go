@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ctreminiom/go-atlassian/v2/pkg/infra/models"
 	"github.com/aaronsb/atlassian-assets/internal/client"
+	"github.com/aaronsb/atlassian-assets/internal/hints"
 )
 
 // CATALOG command with subcommands for browsing global catalogs
@@ -339,7 +340,19 @@ func processAndDisplayCatalog(allAttributes []AttributeCatalogEntry, scope strin
 		result["pattern_matches"] = len(filteredAttributes)
 	}
 	
-	return outputResult(NewSuccessResponse(result))
+	response := NewSuccessResponse(result)
+	
+	// Add contextual hints
+	enhancedResponse := addNextStepHints(response, "catalog_attributes", map[string]interface{}{
+		"scope":         scope,
+		"success":       response.Success,
+		"has_results":   len(paginatedAttributes) > 0,
+		"has_references": hasReferences(paginatedAttributes),
+		"pattern":       catalogPattern,
+		"result_count":  len(paginatedAttributes),
+	})
+	
+	return outputResult(enhancedResponse)
 }
 
 // Helper functions
@@ -362,6 +375,51 @@ func getReferenceTypeName(attr *models.ObjectTypeAttributeScheme) string {
 		return attr.ReferenceType.Name
 	}
 	return ""
+}
+
+// hasReferences checks if any attributes in the list are references
+func hasReferences(attributes []AttributeCatalogEntry) bool {
+	for _, attr := range attributes {
+		if attr.IsReference {
+			return true
+		}
+	}
+	return false
+}
+
+// Helper function to add contextual hints using centralized system
+func addNextStepHints(response interface{}, commandType string, context map[string]interface{}) interface{} {
+	// Convert response to map for modification
+	responseMap := make(map[string]interface{})
+	
+	// Handle different response types
+	switch r := response.(type) {
+	case *Response:
+		responseMap["success"] = r.Success
+		responseMap["data"] = r.Data
+		if r.Error != "" {
+			responseMap["error"] = r.Error
+		}
+		// Add success to context for hint evaluation
+		context["success"] = r.Success
+	case map[string]interface{}:
+		responseMap = r
+		// Add success to context for hint evaluation
+		if success, ok := r["success"].(bool); ok {
+			context["success"] = success
+		}
+	default:
+		return response // Return as-is if we can't parse
+	}
+	
+	// Get contextual hints from centralized system
+	contextualHints := hints.GetContextualHints(commandType, context)
+	
+	if len(contextualHints) > 0 {
+		responseMap["next_steps"] = contextualHints
+	}
+	
+	return responseMap
 }
 
 func init() {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/aaronsb/atlassian-assets/internal/hints"
 )
 
 // BROWSE command - high-level schema browsing tools
@@ -89,7 +90,17 @@ func runBrowseHierarchyCmd(cmd *cobra.Command, args []string) error {
 		result["filtered_parent"] = browseParent
 	}
 
-	return outputResult(NewSuccessResponse(result))
+	response := NewSuccessResponse(result)
+	
+	// Add contextual hints
+	enhancedResponse := addNextStepHints(response, "browse_hierarchy", map[string]interface{}{
+		"schema_id":      browseSchema,
+		"success":        response.Success,
+		"has_children":   len(hierarchy) > 0,
+		"has_empty_types": false, // TODO: Check if types have no instances
+	})
+
+	return outputResult(enhancedResponse)
 }
 
 // BROWSE CHILDREN subcommand  
@@ -212,6 +223,41 @@ func buildHierarchy(objectTypes []map[string]interface{}, parentFilter string) [
 	}
 	
 	return result
+}
+
+// Helper function to add contextual hints using centralized system
+func addNextStepHints(response interface{}, commandType string, context map[string]interface{}) interface{} {
+	// Convert response to map for modification
+	responseMap := make(map[string]interface{})
+	
+	// Handle different response types
+	switch r := response.(type) {
+	case *Response:
+		responseMap["success"] = r.Success
+		responseMap["data"] = r.Data
+		if r.Error != "" {
+			responseMap["error"] = r.Error
+		}
+		// Add success to context for hint evaluation
+		context["success"] = r.Success
+	case map[string]interface{}:
+		responseMap = r
+		// Add success to context for hint evaluation
+		if success, ok := r["success"].(bool); ok {
+			context["success"] = success
+		}
+	default:
+		return response // Return as-is if we can't parse
+	}
+	
+	// Get contextual hints from centralized system
+	contextualHints := hints.GetContextualHints(commandType, context)
+	
+	if len(contextualHints) > 0 {
+		responseMap["next_steps"] = contextualHints
+	}
+	
+	return responseMap
 }
 
 func init() {

@@ -202,14 +202,59 @@ ATLASSIAN_ASSETS_WORKSPACE_ID=12345678-1234-1234-1234-123456789012
 ATLASSIAN_ASSETS_PROFILE=production
 ```
 
+## Intelligent CLI Architecture
+
+### Decision 3: Contextual Hints System
+**Status**: ✅ **Complete**  
+**Context**: CLI needed to provide intelligent guidance for complex workflows  
+**Implementation**: 
+- Centralized workflow hints in JSON configuration (`internal/hints/workflow_hints.json`)
+- Context-aware suggestions based on command results
+- Workflow visualization and next-step recommendations
+- Condition-based hint filtering with priority system
+**Benefits**: 
+- Self-documenting CLI with contextual guidance
+- Reduces learning curve for complex asset management workflows
+- Enables intelligent automation and workflow discovery
+
+### Contextual Hints System Design
+
+#### Core Components
+1. **Workflow Definitions**: Complete workflows with steps and transitions
+2. **Context Mapping**: Command results trigger appropriate hint contexts
+3. **Hint Templates**: Reusable command templates with variable substitution
+4. **Category System**: Organized hints by priority and purpose
+
+#### Supported Workflows
+- **Object Type Creation**: Guided object type setup with enhancement suggestions
+- **Attribute Marketplace**: Universal attribute sharing and application
+- **Instance Management**: Intelligent object creation with validation
+- **Discovery & Analysis**: Schema exploration and dependency mapping
+
+#### Implementation Pattern
+```go
+// All normalized commands follow this pattern:
+enhancedResponse := addNextStepHints(response, "command_context", map[string]interface{}{
+    "success": response.Success,
+    "context_variables": contextData,
+})
+```
+
+#### Hint Categories
+- **Essential** (Priority 1): Critical next steps for workflow completion
+- **Enhancement** (Priority 2): Improve and customize assets
+- **Verification** (Priority 3): Validate and confirm work
+- **Exploration** (Priority 4): Discover possibilities and relationships
+
 ## Open Questions
 
 1. ✅ What open-source SDK libraries are available for Atlassian Assets?
 2. ✅ Which programming languages have the best SDK support?
-3. What authentication methods are supported? (OAuth 2.0, API tokens confirmed)
-4. What are the rate limits and API constraints?
-5. How should we handle configuration management?
-6. Should we verify Assets API support in Python library?
+3. ✅ How should we implement intelligent CLI guidance? (Contextual hints system implemented)
+4. What authentication methods are supported? (OAuth 2.0, API tokens confirmed)
+5. What are the rate limits and API constraints?
+6. How should we handle configuration management?
+7. Should we verify Assets API support in Python library?
 
 ## References
 
@@ -222,3 +267,6 @@ ATLASSIAN_ASSETS_PROFILE=production
 
 ## Changelog
 - 2025-07-17: Initial design document structure created
+- 2025-07-17: Added intelligent CLI architecture with contextual hints system
+- 2025-07-17: Documented workflow definitions and hint categorization
+- 2025-07-17: Established pattern for normalized commands with contextual guidance

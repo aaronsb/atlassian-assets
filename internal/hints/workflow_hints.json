@@ -1,0 +1,500 @@
+{
+  "version": "1.0.0",
+  "description": "Centralized contextual hints library for Atlassian Assets CLI",
+  "workflows": {
+    "object_type_creation": {
+      "description": "Complete workflow for creating and setting up object types",
+      "steps": [
+        {
+          "id": "create_object_type",
+          "name": "Create Object Type",
+          "description": "Create a new object type in a schema",
+          "command": "assets create object-type --schema {schema} --name {name}",
+          "next_steps": ["set_icon", "add_attributes", "create_child_types", "create_instances"]
+        },
+        {
+          "id": "set_icon",
+          "name": "Set Custom Icon",
+          "description": "Set a custom icon for the object type",
+          "command": "assets enhance set-icon --target {object_type} --browse-icons",
+          "next_steps": ["add_attributes", "create_child_types"]
+        },
+        {
+          "id": "add_attributes",
+          "name": "Add Attributes",
+          "description": "Add attributes from marketplace or create new ones",
+          "command": "assets enhance object-type --target {object_type} --add-from {source_type}",
+          "next_steps": ["create_instances", "copy_object_type"]
+        },
+        {
+          "id": "create_child_types",
+          "name": "Create Child Types",
+          "description": "Create child object types for hierarchical organization",
+          "command": "assets copy object-type --source {object_type} --name {child_name} --as-child",
+          "next_steps": ["add_attributes", "create_instances"]
+        },
+        {
+          "id": "create_instances",
+          "name": "Create Instances",
+          "description": "Create object instances with intelligent completion",
+          "command": "assets complete --type {object_type} --data '{\"name\":\"{instance_name}\"}'",
+          "next_steps": ["search_instances", "enhance_instances"]
+        }
+      ]
+    },
+    "attribute_marketplace": {
+      "description": "Universal attribute sharing and enhancement workflow",
+      "steps": [
+        {
+          "id": "catalog_attributes",
+          "name": "Browse Attribute Catalog",
+          "description": "Search for attributes across all schemas",
+          "command": "assets catalog attributes --pattern {pattern}",
+          "next_steps": ["extract_attributes", "trace_references"]
+        },
+        {
+          "id": "extract_attributes",
+          "name": "Extract Attributes",
+          "description": "Extract attributes from source object type",
+          "command": "assets extract attributes --from-object-type {source_type}",
+          "next_steps": ["apply_attributes", "trace_references"]
+        },
+        {
+          "id": "apply_attributes",
+          "name": "Apply Attributes",
+          "description": "Apply extracted attributes to target object type",
+          "command": "assets apply attributes --to-object-type {target_type} --attributes-file {file}",
+          "next_steps": ["create_instances", "validate_schema"]
+        },
+        {
+          "id": "trace_references",
+          "name": "Trace References",
+          "description": "Trace cross-schema references for dependency mapping",
+          "command": "assets trace --attribute-id {attribute_id} --source-schema {schema}",
+          "next_steps": ["resolve_dependencies", "apply_attributes"]
+        }
+      ]
+    },
+    "instance_management": {
+      "description": "Creating and managing object instances",
+      "steps": [
+        {
+          "id": "intelligent_completion",
+          "name": "Intelligent Completion",
+          "description": "Create instances with smart defaults and validation",
+          "command": "assets complete --type {object_type} --data {json_data}",
+          "next_steps": ["search_instances", "enhance_instances", "validate_instances"]
+        },
+        {
+          "id": "search_instances",
+          "name": "Search Instances",
+          "description": "Find created instances using AQL queries",
+          "command": "assets search --query \"objectTypeId = {object_type_id}\"",
+          "next_steps": ["enhance_instances", "browse_hierarchy"]
+        },
+        {
+          "id": "enhance_instances",
+          "name": "Enhance Instances",
+          "description": "Add or modify attributes on existing instances",
+          "command": "assets enhance instance --target {instance_id} --add-attribute {attribute}",
+          "next_steps": ["validate_instances", "create_relationships"]
+        }
+      ]
+    },
+    "discovery_and_analysis": {
+      "description": "Exploring and understanding asset structures",
+      "steps": [
+        {
+          "id": "browse_hierarchy",
+          "name": "Browse Hierarchy",
+          "description": "Explore object type hierarchies in schemas",
+          "command": "assets browse hierarchy --schema {schema_id}",
+          "next_steps": ["browse_children", "summary_schema"]
+        },
+        {
+          "id": "browse_children",
+          "name": "Browse Children",
+          "description": "View child object types and their relationships",
+          "command": "assets browse children --parent {parent_id} --schema {schema_id}",
+          "next_steps": ["browse_attributes", "create_instances"]
+        },
+        {
+          "id": "browse_attributes",
+          "name": "Browse Attributes",
+          "description": "Examine attributes and their configurations",
+          "command": "assets browse attrs --source {source_id} --target {target_id}",
+          "next_steps": ["extract_attributes", "apply_attributes"]
+        },
+        {
+          "id": "summary_schema",
+          "name": "Schema Summary",
+          "description": "Get overview of schema structure and statistics",
+          "command": "assets summary schema --id {schema_id}",
+          "next_steps": ["browse_hierarchy", "catalog_attributes"]
+        }
+      ]
+    }
+  },
+  "contexts": {
+    "create_object_type": {
+      "hints": [
+        {
+          "condition": "!has_custom_icon",
+          "message": "💡 Set a custom icon: `{set_icon_command}`",
+          "priority": "medium",
+          "category": "enhancement"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Add attributes: `{add_attributes_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "!has_parent",
+          "message": "💡 Create child types: `{create_child_command}`",
+          "priority": "medium",
+          "category": "organization"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Create instances: `{create_instances_command}`",
+          "priority": "high",
+          "category": "essential"
+        }
+      ]
+    },
+    "intelligent_completion": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "💡 Search created objects: `{search_command}`",
+          "priority": "high",
+          "category": "verification"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Create more instances: `{create_more_command}`",
+          "priority": "medium",
+          "category": "continuation"
+        },
+        {
+          "condition": "has_suggestions",
+          "message": "💡 Enhance with suggested attributes: `{enhance_command}`",
+          "priority": "high",
+          "category": "improvement"
+        }
+      ]
+    },
+    "extract_attributes": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "💡 Apply to target: `{apply_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "has_references",
+          "message": "💡 Trace references: `{trace_command}`",
+          "priority": "medium",
+          "category": "analysis"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Browse catalog: `{catalog_command}`",
+          "priority": "low",
+          "category": "discovery"
+        }
+      ]
+    },
+    "apply_attributes": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "💡 Create instances: `{create_instances_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "has_conflicts",
+          "message": "💡 Resolve conflicts: `{resolve_command}`",
+          "priority": "high",
+          "category": "troubleshooting"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Validate schema: `{validate_command}`",
+          "priority": "medium",
+          "category": "verification"
+        }
+      ]
+    },
+    "catalog_attributes": {
+      "hints": [
+        {
+          "condition": "has_results",
+          "message": "💡 Extract specific attributes: `{extract_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "has_references",
+          "message": "💡 Trace cross-schema refs: `{trace_command}`",
+          "priority": "medium",
+          "category": "analysis"
+        },
+        {
+          "condition": "large_result_set",
+          "message": "💡 Refine search: `{refine_command}`",
+          "priority": "low",
+          "category": "optimization"
+        }
+      ]
+    },
+    "search_objects": {
+      "hints": [
+        {
+          "condition": "has_results",
+          "message": "💡 Browse object details: `{browse_command}`",
+          "priority": "medium",
+          "category": "exploration"
+        },
+        {
+          "condition": "no_results",
+          "message": "💡 Try broader search: `{broader_search_command}`",
+          "priority": "high",
+          "category": "troubleshooting"
+        },
+        {
+          "condition": "has_results",
+          "message": "💡 Create similar objects: `{create_similar_command}`",
+          "priority": "low",
+          "category": "continuation"
+        }
+      ]
+    },
+    "browse_hierarchy": {
+      "hints": [
+        {
+          "condition": "has_children",
+          "message": "💡 Explore children: `{browse_children_command}`",
+          "priority": "medium",
+          "category": "exploration"
+        },
+        {
+          "condition": "always",
+          "message": "💡 View schema summary: `{schema_summary_command}`",
+          "priority": "low",
+          "category": "overview"
+        },
+        {
+          "condition": "has_empty_types",
+          "message": "💡 Create instances: `{create_instances_command}`",
+          "priority": "high",
+          "category": "essential"
+        }
+      ]
+    },
+    "create_instance_legacy": {
+      "hints": [
+        {
+          "condition": "always",
+          "message": "💡 Better approach: Use `{intelligent_completion_command}` for smart completion",
+          "priority": "high",
+          "category": "improvement"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Search created objects: `{search_command}`",
+          "priority": "medium",
+          "category": "verification"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Browse object type: `{browse_command}`",
+          "priority": "low",
+          "category": "exploration"
+        }
+      ]
+    },
+    "schema_management": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "💡 Browse hierarchy: `{browse_hierarchy_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Create object types: `{create_object_type_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Get schema summary: `{schema_summary_command}`",
+          "priority": "medium",
+          "category": "overview"
+        }
+      ]
+    },
+    "trace_references": {
+      "hints": [
+        {
+          "condition": "has_results",
+          "message": "💡 Apply resolved attributes: `{apply_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "has_dependencies",
+          "message": "💡 Browse dependency schemas: `{browse_schema_command}`",
+          "priority": "medium",
+          "category": "analysis"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Catalog related attributes: `{catalog_command}`",
+          "priority": "low",
+          "category": "discovery"
+        }
+      ]
+    },
+    "list_objects": {
+      "hints": [
+        {
+          "condition": "has_results",
+          "message": "💡 Get object details: `{get_object_command}`",
+          "priority": "medium",
+          "category": "exploration"
+        },
+        {
+          "condition": "has_results",
+          "message": "💡 Create similar objects: `{create_similar_command}`",
+          "priority": "low",
+          "category": "continuation"
+        },
+        {
+          "condition": "no_results",
+          "message": "💡 Create new objects: `{create_instances_command}`",
+          "priority": "high",
+          "category": "essential"
+        }
+      ]
+    },
+    "validate_objects": {
+      "hints": [
+        {
+          "condition": "has_errors",
+          "message": "💡 Fix validation errors: `{fix_validation_command}`",
+          "priority": "high",
+          "category": "troubleshooting"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Create instances: `{create_instances_command}`",
+          "priority": "high",
+          "category": "essential"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Apply to marketplace: `{apply_marketplace_command}`",
+          "priority": "medium",
+          "category": "enhancement"
+        }
+      ]
+    }
+  },
+  "command_templates": {
+    "set_icon_command": "assets enhance set-icon --target '{object_type_name}' --browse-icons",
+    "add_attributes_command": "assets enhance object-type --target '{object_type_name}' --add-from 'Physical Servers'",
+    "create_child_command": "assets copy object-type --source '{object_type_name}' --name 'Regional Center' --as-child",
+    "create_instances_command": "assets complete --type '{object_type_name}' --data '{\"name\":\"ITEM-001\"}'",
+    "search_command": "assets search --query \"objectTypeId = {object_type_id}\"",
+    "browse_command": "assets browse hierarchy --schema {schema_id}",
+    "extract_command": "assets extract attributes --from-object-type {source_type_id}",
+    "apply_command": "assets apply attributes --to-object-type {target_type_id} --attributes-file {file_name}",
+    "trace_command": "assets trace --attribute-id {attribute_id} --source-schema {schema_id}",
+    "catalog_command": "assets catalog attributes --pattern '{pattern}'",
+    "intelligent_completion_command": "assets complete --type {object_type_id} --data '{...}'",
+    "validate_command": "assets validate object-type --target {object_type_id}",
+    "create_more_command": "assets create instance --type {object_type_id} --data '{...}'",
+    "enhance_command": "assets enhance instance --target {instance_id} --add-attribute '{attribute_name}'",
+    "resolve_command": "assets resolve conflicts --target {object_type_id}",
+    "refine_command": "assets catalog attributes --pattern '{refined_pattern}' --schema {schema_id}",
+    "broader_search_command": "assets search --query \"Name like '%{search_term}%'\"",
+    "create_similar_command": "assets complete --type {object_type_id} --data '{...}'",
+    "browse_children_command": "assets browse children --parent {parent_id} --schema {schema_id}",
+    "schema_summary_command": "assets summary schema --id {schema_id}",
+    "browse_hierarchy_command": "assets browse hierarchy --schema {schema_id}",
+    "create_object_type_command": "assets create object-type --schema {schema_id} --name '{object_type_name}'",
+    "browse_schema_command": "assets browse hierarchy --schema {dependency_schema_id}",
+    "get_object_command": "assets get --id {object_id}",
+    "fix_validation_command": "assets validate --fix --target {object_type_id}",
+    "apply_marketplace_command": "assets apply attributes --to-object-type {object_type_id} --marketplace"
+  },
+  "categories": {
+    "essential": {
+      "description": "Critical next steps for workflow completion",
+      "priority": 1,
+      "icon": "🎯"
+    },
+    "enhancement": {
+      "description": "Improve and customize your assets",
+      "priority": 2,
+      "icon": "✨"
+    },
+    "organization": {
+      "description": "Structure and organize your asset hierarchy",
+      "priority": 2,
+      "icon": "📁"
+    },
+    "verification": {
+      "description": "Verify and validate your work",
+      "priority": 3,
+      "icon": "✅"
+    },
+    "exploration": {
+      "description": "Explore and discover asset relationships",
+      "priority": 3,
+      "icon": "🔍"
+    },
+    "analysis": {
+      "description": "Analyze dependencies and relationships",
+      "priority": 4,
+      "icon": "📊"
+    },
+    "troubleshooting": {
+      "description": "Resolve issues and conflicts",
+      "priority": 1,
+      "icon": "🔧"
+    },
+    "improvement": {
+      "description": "Better ways to accomplish tasks",
+      "priority": 2,
+      "icon": "💡"
+    },
+    "continuation": {
+      "description": "Continue with similar or related tasks",
+      "priority": 4,
+      "icon": "➡️"
+    },
+    "overview": {
+      "description": "Get high-level understanding",
+      "priority": 4,
+      "icon": "📋"
+    },
+    "discovery": {
+      "description": "Discover new possibilities",
+      "priority": 4,
+      "icon": "🌟"
+    },
+    "optimization": {
+      "description": "Optimize performance and results",
+      "priority": 4,
+      "icon": "⚡"
+    }
+  }
+}
