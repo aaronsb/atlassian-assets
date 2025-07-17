@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -122,8 +123,12 @@ func outputResult(data interface{}) error {
 }
 
 func outputJSON(data interface{}) error {
-	// JSON output implementation
-	fmt.Printf("%+v\n", data)
+	// Pretty-print JSON output
+	jsonData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+	fmt.Println(string(jsonData))
 	return nil
 }
 

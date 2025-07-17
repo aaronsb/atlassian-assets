@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -32,11 +33,11 @@ func runSchemaListCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "schema_list",
-		"status": "not_implemented",
-		"message": "Schema listing will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	response, err := client.ListSchemas(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list schemas: %w", err)
+	}
 
 	return outputResult(response)
 }
@@ -65,12 +66,11 @@ func runSchemaGetCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "schema_get",
-		"id":     schemaGetID,
-		"status": "not_implemented",
-		"message": "Schema details will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	response, err := client.GetSchema(ctx, schemaGetID)
+	if err != nil {
+		return fmt.Errorf("failed to get schema: %w", err)
+	}
 
 	return outputResult(response)
 }

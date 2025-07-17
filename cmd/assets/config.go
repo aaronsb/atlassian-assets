@@ -44,11 +44,12 @@ func runConfigShowCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	response := NewSuccessResponse(map[string]interface{}{
-		"email":        cfg.Email,
-		"host":         cfg.Host,
-		"api_token":    maskedToken,
-		"workspace_id": cfg.WorkspaceID,
-		"profile":      cfg.Profile,
+		"email":              cfg.Email,
+		"host":               cfg.Host,
+		"api_token":          maskedToken,
+		"workspace_id":       client.GetWorkspaceID(),
+		"workspace_id_env":   cfg.WorkspaceID,
+		"profile":            cfg.Profile,
 	})
 
 	return outputResult(response)
@@ -103,11 +104,10 @@ func runConfigDiscoverWorkspaceCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	// TODO: Implement workspace discovery
 	response := NewSuccessResponse(map[string]interface{}{
-		"action": "discover_workspace",
-		"status": "not_implemented",
-		"message": "Workspace discovery will be implemented using go-atlassian SDK",
+		"workspace_id": client.GetWorkspaceID(),
+		"status":       "discovered",
+		"message":      "Workspace ID successfully discovered from Atlassian instance",
 	})
 
 	return outputResult(response)

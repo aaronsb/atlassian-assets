@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -26,11 +27,14 @@ func NewAssetsClient(cfg *config.Config) (*AssetsClient, error) {
 	// Create HTTP client for basic auth
 	httpClient := &http.Client{}
 
-	// Create the assets API client
-	assetsAPI, err := assets.New(httpClient, cfg.GetBaseURL())
+	// Create the assets API client - use default Assets API URL
+	assetsAPI, err := assets.New(httpClient, "https://api.atlassian.com/")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create assets client: %w", err)
 	}
+
+	// Set basic authentication
+	assetsAPI.Auth.SetBasicAuth(cfg.GetUsername(), cfg.GetPassword())
 
 	ac := &AssetsClient{
 		httpClient: httpClient,
@@ -55,15 +59,45 @@ func NewAssetsClient(cfg *config.Config) (*AssetsClient, error) {
 // discoverWorkspaceID attempts to discover the workspace ID from the site
 // This addresses the abstraction issue you mentioned about site name -> workspace UID
 func (ac *AssetsClient) discoverWorkspaceID(ctx context.Context) (string, error) {
-	// Try to get workspaces/objects to discover the workspace ID
-	// This is a common pattern when the workspace ID isn't known
+	// Use the JSM Service Desk API to get workspace information
+	// This is the key to bridging site name -> workspace UID
 	
-	// Note: The exact method depends on the go-atlassian API structure
-	// We may need to call a general endpoint that returns workspace info
-	
-	// For now, return an error asking the user to provide the workspace ID
-	// We can implement auto-discovery once we test with a real instance
-	return "", fmt.Errorf("workspace ID discovery not yet implemented - please set ATLASSIAN_ASSETS_WORKSPACE_ID environment variable")
+	url := fmt.Sprintf("%s/rest/servicedeskapi/insight/workspace", ac.config.GetBaseURL())
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create workspace discovery request: %w", err)
+	}
+
+	// Set basic auth
+	req.SetBasicAuth(ac.config.GetUsername(), ac.config.GetPassword())
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := ac.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to discover workspace: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("workspace discovery failed: HTTP %d", resp.StatusCode)
+	}
+
+	var workspaceResp struct {
+		Values []struct {
+			WorkspaceID string `json:"workspaceId"`
+		} `json:"values"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&workspaceResp); err != nil {
+		return "", fmt.Errorf("failed to decode workspace response: %w", err)
+	}
+
+	if len(workspaceResp.Values) == 0 {
+		return "", fmt.Errorf("no workspaces found")
+	}
+
+	// Return the first workspace ID
+	return workspaceResp.Values[0].WorkspaceID, nil
 }
 
 // GetWorkspaceID returns the current workspace ID
@@ -121,4 +155,43 @@ func NewErrorResponse(err error) *Response {
 		Success: false,
 		Error:   err.Error(),
 	}
+}
+
+// ListSchemas lists all object schemas in the workspace
+func (ac *AssetsClient) ListSchemas(ctx context.Context) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	schemas, response, err := ac.assetsAPI.ObjectSchema.List(ctx, ac.workspaceID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to list schemas: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"schemas": schemas.Values,
+		"total":   schemas.Total,
+	}), nil
+}
+
+// GetSchema gets details of a specific schema
+func (ac *AssetsClient) GetSchema(ctx context.Context, schemaID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	schema, response, err := ac.assetsAPI.ObjectSchema.Get(ctx, ac.workspaceID, schemaID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get schema: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(schema), nil
 }
