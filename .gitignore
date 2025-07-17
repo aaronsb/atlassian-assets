@@ -55,3 +55,6 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+# Cache directories
+.cache/

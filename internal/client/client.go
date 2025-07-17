@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/ctreminiom/go-atlassian/v2/assets"
+	"github.com/ctreminiom/go-atlassian/v2/pkg/infra/models"
 	"github.com/aaronsb/atlassian-assets/internal/config"
 )
 
@@ -194,4 +195,116 @@ func (ac *AssetsClient) GetSchema(ctx context.Context, schemaID string) (*Respon
 	}
 
 	return NewSuccessResponse(schema), nil
+}
+
+// GetObjectTypes gets object types for a specific schema
+func (ac *AssetsClient) GetObjectTypes(ctx context.Context, schemaID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	objectTypes, response, err := ac.assetsAPI.ObjectSchema.ObjectTypes(ctx, ac.workspaceID, schemaID, false)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get object types: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_types": objectTypes,
+		"schema":       schemaID,
+		"count":        len(objectTypes),
+	}), nil
+}
+
+// ListObjects lists objects in a specific schema using structured search
+func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit int) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Use structured search without Query to get all objects in schema
+	searchParams := &models.ObjectSearchParamsScheme{
+		ObjectSchemaID:    schemaID,
+		ResultPerPage:     limit,
+		Page:              1,
+		IncludeAttributes: true,
+		// Note: No Query field means get all objects in the schema
+	}
+	
+	fmt.Printf("DEBUG: Calling Search with workspaceID=%s, objectSchemaID=%s, limit=%d\n", ac.workspaceID, schemaID, limit)
+	objects, response, err := ac.assetsAPI.Object.Search(ctx, ac.workspaceID, searchParams)
+	
+	if objects != nil {
+		fmt.Printf("DEBUG: Search returned err=%v, response.Code=%d, objects.TotalFilterCount=%d\n", err, response.Code, objects.TotalFilterCount)
+	} else {
+		fmt.Printf("DEBUG: Search returned err=%v, response.Code=%d, objects=nil\n", err, response.Code)
+	}
+	
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to list objects: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	if objects == nil {
+		return NewSuccessResponse(map[string]interface{}{
+			"objects": []interface{}{},
+			"total":   0,
+			"schema":  schemaID,
+			"method":  "structured_search",
+			"error":   "objects response is nil",
+		}), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"objects": objects.ObjectEntries,
+		"total":   objects.TotalFilterCount,
+		"schema":  schemaID,
+		"method":  "structured_search",
+	}), nil
+}
+
+// GetObject gets a specific object by ID
+func (ac *AssetsClient) GetObject(ctx context.Context, objectID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	object, response, err := ac.assetsAPI.Object.Get(ctx, ac.workspaceID, objectID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get object: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(object), nil
+}
+
+// SearchObjects searches for objects using AQL with human-readable results
+func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit int) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	objects, response, err := ac.assetsAPI.Object.Filter(ctx, ac.workspaceID, query, true, limit, 0)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to search objects: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"objects": objects.Values,
+		"total":   objects.Total,
+		"query":   query,
+	}), nil
 }

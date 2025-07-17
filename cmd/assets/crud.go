@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -45,14 +46,15 @@ func runListCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "list",
-		"schema": listSchema,
-		"type":   listType,
-		"filter": listFilter,
-		"status": "not_implemented",
-		"message": "Asset listing will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	
+	// Default limit
+	limit := 50
+	
+	response, err := client.ListObjects(ctx, listSchema, limit)
+	if err != nil {
+		return fmt.Errorf("failed to list objects: %w", err)
+	}
 
 	return outputResult(response)
 }
@@ -81,12 +83,11 @@ func runGetCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "get",
-		"id":     getID,
-		"status": "not_implemented",
-		"message": "Asset retrieval will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	response, err := client.GetObject(ctx, getID)
+	if err != nil {
+		return fmt.Errorf("failed to get object: %w", err)
+	}
 
 	return outputResult(response)
 }
@@ -196,12 +197,13 @@ func runSearchCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "search",
-		"query":  searchQuery,
-		"status": "not_implemented",
-		"message": "Asset search will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	limit := 50
+	
+	response, err := client.SearchObjects(ctx, searchQuery, limit)
+	if err != nil {
+		return fmt.Errorf("failed to search objects: %w", err)
+	}
 
 	return outputResult(response)
 }

@@ -99,12 +99,11 @@ func runSchemaTypesCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "schema_types",
-		"schema": schemaTypesSchema,
-		"status": "not_implemented",
-		"message": "Schema types will be implemented using go-atlassian SDK",
-	})
+	ctx := context.Background()
+	response, err := client.GetObjectTypes(ctx, schemaTypesSchema)
+	if err != nil {
+		return fmt.Errorf("failed to get object types: %w", err)
+	}
 
 	return outputResult(response)
 }

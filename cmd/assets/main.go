@@ -54,6 +54,7 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(schemaCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(resolveCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

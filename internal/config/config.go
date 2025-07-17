@@ -4,17 +4,21 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 // Config holds all configuration for the Assets CLI
 type Config struct {
-	Email       string
-	Host        string
-	APIToken    string
-	WorkspaceID string
-	Profile     string
+	Email         string
+	Host          string
+	APIToken      string
+	WorkspaceID   string
+	Profile       string
+	CacheDir      string
+	CacheTTLHours int
 }
 
 // LoadConfig loads configuration from environment variables and .env file
@@ -27,12 +31,22 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	// Parse cache TTL hours
+	cacheTTLHours := 24 // default
+	if ttlStr := os.Getenv("ATLASSIAN_ASSETS_CACHE_TTL_HOURS"); ttlStr != "" {
+		if ttl, err := strconv.Atoi(ttlStr); err == nil && ttl > 0 {
+			cacheTTLHours = ttl
+		}
+	}
+
 	config := &Config{
-		Email:       os.Getenv("ATLASSIAN_EMAIL"),
-		Host:        os.Getenv("ATLASSIAN_HOST"),
-		APIToken:    os.Getenv("ATLASSIAN_API_TOKEN"),
-		WorkspaceID: os.Getenv("ATLASSIAN_ASSETS_WORKSPACE_ID"),
-		Profile:     os.Getenv("ATLASSIAN_ASSETS_PROFILE"),
+		Email:         os.Getenv("ATLASSIAN_EMAIL"),
+		Host:          os.Getenv("ATLASSIAN_HOST"),
+		APIToken:      os.Getenv("ATLASSIAN_API_TOKEN"),
+		WorkspaceID:   os.Getenv("ATLASSIAN_ASSETS_WORKSPACE_ID"),
+		Profile:       os.Getenv("ATLASSIAN_ASSETS_PROFILE"),
+		CacheDir:      os.Getenv("ATLASSIAN_ASSETS_CACHE_DIR"),
+		CacheTTLHours: cacheTTLHours,
 	}
 
 	// Validate required fields
@@ -49,6 +63,11 @@ func LoadConfig() (*Config, error) {
 	// Set default profile if not specified
 	if config.Profile == "" {
 		config.Profile = "default"
+	}
+
+	// Set default cache directory if not specified
+	if config.CacheDir == "" {
+		config.CacheDir = ".cache/atlassian-assets"
 	}
 
 	return config, nil
@@ -98,4 +117,29 @@ func (c *Config) GetUsername() string {
 // GetPassword returns the password for basic auth (API token for Atlassian)
 func (c *Config) GetPassword() string {
 	return c.APIToken
+}
+
+// GetCacheDir returns the cache directory path, creating it if necessary
+func (c *Config) GetCacheDir() (string, error) {
+	// Convert relative path to absolute if needed
+	cacheDir := c.CacheDir
+	if !filepath.IsAbs(cacheDir) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get working directory: %w", err)
+		}
+		cacheDir = filepath.Join(wd, cacheDir)
+	}
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	return cacheDir, nil
+}
+
+// GetCacheTTL returns the cache TTL as a time.Duration
+func (c *Config) GetCacheTTL() time.Duration {
+	return time.Duration(c.CacheTTLHours) * time.Hour
 }
