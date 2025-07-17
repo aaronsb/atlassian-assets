@@ -287,6 +287,32 @@ func (ac *AssetsClient) GetObject(ctx context.Context, objectID string) (*Respon
 	return NewSuccessResponse(object), nil
 }
 
+// GetObjectTypeAttributes gets all attributes for a specific object type
+func (ac *AssetsClient) GetObjectTypeAttributes(ctx context.Context, objectTypeID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Get all attributes for this object type
+	attributes, response, err := ac.assetsAPI.ObjectType.Attributes(ctx, ac.workspaceID, objectTypeID, &models.ObjectTypeAttributesParamsScheme{
+		OrderByName:     true,
+		OrderByRequired: true,
+	})
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get object type attributes: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_type_id": objectTypeID,
+		"attributes":     attributes,
+		"count":          len(attributes),
+	}), nil
+}
+
 // SearchObjects searches for objects using AQL with human-readable results
 func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit int) (*Response, error) {
 	if ac.workspaceID == "" {

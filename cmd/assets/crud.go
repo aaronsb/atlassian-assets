@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/aaronsb/atlassian-assets/internal/validation"
 )
 
 // LIST command
@@ -204,6 +206,185 @@ func runSearchCmd(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to search objects: %w", err)
 	}
+
+	return outputResult(response)
+}
+
+// ATTRIBUTES command
+var attributesCmd = &cobra.Command{
+	Use:   "attributes",
+	Short: "Get object type attributes",
+	Long: `Get all attributes for a specific object type.
+	
+This shows the schema definition including required attributes, data types, 
+and validation rules needed for object creation and updates.`,
+	Example: `  # Get attributes for object type
+  assets attributes --type 133
+  
+  # Get attributes using resolver
+  assets attributes --type "laptops" --schema "facilities"`,
+	RunE: runAttributesCmd,
+}
+
+var (
+	attributesType   string
+	attributesSchema string
+)
+
+func init() {
+	attributesCmd.Flags().StringVar(&attributesType, "type", "", "Object type ID or name (required)")
+	attributesCmd.Flags().StringVar(&attributesSchema, "schema", "", "Schema ID or name (for name resolution)")
+	
+	attributesCmd.MarkFlagRequired("type")
+}
+
+func runAttributesCmd(cmd *cobra.Command, args []string) error {
+	client, err := getClient()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	
+	// For now, require direct object type ID to avoid cache timeout issues
+	// TODO: Fix resolver cache performance issues before enabling name resolution
+	objectTypeID := attributesType
+	if attributesSchema != "" {
+		return fmt.Errorf("name resolution temporarily disabled due to cache timeout issues. Please use object type ID directly (e.g., --type 133)")
+	}
+	
+	response, err := client.GetObjectTypeAttributes(ctx, objectTypeID)
+	if err != nil {
+		return fmt.Errorf("failed to get object type attributes: %w", err)
+	}
+
+	return outputResult(response)
+}
+
+// VALIDATE command
+var validateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate object properties against schema",
+	Long: `Validate object properties against the object type schema.
+	
+This command checks if the provided properties meet the validation rules
+including required fields, data types, and allowed values.`,
+	Example: `  # Validate properties for laptops
+  assets validate --type 133 --data '{"name":"Test Laptop","device_type":"Physical"}'`,
+	RunE: runValidateCmd,
+}
+
+var (
+	validateType string
+	validateData string
+)
+
+func init() {
+	validateCmd.Flags().StringVar(&validateType, "type", "", "Object type ID (required)")
+	validateCmd.Flags().StringVar(&validateData, "data", "", "Property data as JSON string (required)")
+	
+	validateCmd.MarkFlagRequired("type")
+	validateCmd.MarkFlagRequired("data")
+}
+
+func runValidateCmd(cmd *cobra.Command, args []string) error {
+	client, err := getClient()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// Parse the JSON data
+	var properties map[string]interface{}
+	if err := json.Unmarshal([]byte(validateData), &properties); err != nil {
+		return fmt.Errorf("failed to parse JSON data: %w", err)
+	}
+
+	// Create validator and validate the object
+	validator := validation.NewObjectValidator(client)
+	result, err := validator.ValidateForCreate(ctx, validateType, properties)
+	if err != nil {
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	// Add summary to the response
+	summary := validator.GetValidationSummary(result)
+	
+	response := NewSuccessResponse(map[string]interface{}{
+		"action":            "validate_properties",
+		"object_type_id":    validateType,
+		"validation_result": result,
+		"summary":           summary,
+	})
+
+	return outputResult(response)
+}
+
+// COMPLETE command
+var completeCmd = &cobra.Command{
+	Use:   "complete",
+	Short: "Intelligently complete object properties",
+	Long: `Intelligently complete object properties with reasonable defaults and suggestions.
+	
+This command takes partial object information and attempts to create a complete,
+valid object by applying intelligent defaults and providing helpful suggestions
+for missing fields. Perfect for AI agents that have semantic understanding
+but may not know exact schema requirements.`,
+	Example: `  # Complete a laptop object with minimal info
+  assets complete --type 133 --data '{"name":"John'\''s MacBook"}'
+  
+  # AI-friendly: provide what you know, get completion suggestions
+  assets complete --type 133 --data '{"name":"Development Laptop","device_type":"Physical"}'`,
+	RunE: runCompleteCmd,
+}
+
+var (
+	completeType string
+	completeData string
+)
+
+func init() {
+	completeCmd.Flags().StringVar(&completeType, "type", "", "Object type ID (required)")
+	completeCmd.Flags().StringVar(&completeData, "data", "", "Partial property data as JSON string (required)")
+	
+	completeCmd.MarkFlagRequired("type")
+	completeCmd.MarkFlagRequired("data")
+}
+
+func runCompleteCmd(cmd *cobra.Command, args []string) error {
+	client, err := getClient()
+	if err != nil {
+		return fmt.Errorf("failed to create client: %w", err)
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// Parse the JSON data
+	var properties map[string]interface{}
+	if err := json.Unmarshal([]byte(completeData), &properties); err != nil {
+		return fmt.Errorf("failed to parse JSON data: %w", err)
+	}
+
+	// Create validator and complete the object
+	validator := validation.NewObjectValidator(client)
+	result, err := validator.CompleteObject(ctx, completeType, properties)
+	if err != nil {
+		return fmt.Errorf("completion failed: %w", err)
+	}
+
+	// Add summary to the response
+	summary := validator.GetCompletionSummary(result)
+	
+	response := NewSuccessResponse(map[string]interface{}{
+		"action":            "complete_object",
+		"object_type_id":    completeType,
+		"completion_result": result,
+		"summary":           summary,
+	})
 
 	return outputResult(response)
 }
