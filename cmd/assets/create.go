@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -43,28 +44,24 @@ func runCreateCmd(cmd *cobra.Command, args []string) error {
 	}
 	defer client.Close()
 
-	// For now, return a placeholder response
-	// TODO: Implement actual asset creation using go-atlassian
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "create",
-		"schema": createSchema,
-		"type":   createType,
-		"data":   createData,
-		"status": "not_implemented",
-		"message": "Asset creation will be implemented using go-atlassian SDK",
-	})
-
-	return outputResult(response)
+	ctx := context.Background()
+	return createAsset(ctx, client, createSchema, createType, createData)
 }
 
 // createAsset creates a new asset object
 func createAsset(ctx context.Context, client *client.AssetsClient, schema, objectType, data string) error {
-	// TODO: Implement using go-atlassian SDK
-	// This will involve:
 	// 1. Parse the JSON data
-	// 2. Map to the appropriate go-atlassian structure
-	// 3. Call the assets API to create the object
-	// 4. Return the created object details
-	
-	return fmt.Errorf("asset creation not yet implemented")
+	var attributes map[string]interface{}
+	if err := json.Unmarshal([]byte(data), &attributes); err != nil {
+		return fmt.Errorf("failed to parse JSON data: %w", err)
+	}
+
+	// 2. Create the object using our client
+	response, err := client.CreateObject(ctx, objectType, attributes)
+	if err != nil {
+		return fmt.Errorf("failed to create object: %w", err)
+	}
+
+	// 3. Output the result
+	return outputResult(response)
 }

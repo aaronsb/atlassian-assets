@@ -369,3 +369,119 @@ func (ac *AssetsClient) CreateObjectType(ctx context.Context, schemaID, name, de
 		"message":     fmt.Sprintf("Successfully created object type '%s' in schema %s", name, schemaID),
 	}), nil
 }
+
+// CreateObject creates a new object instance in the specified object type
+func (ac *AssetsClient) CreateObject(ctx context.Context, objectTypeID string, attributes map[string]interface{}) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Get object type attributes to resolve names to IDs
+	attrResponse, err := ac.GetObjectTypeAttributes(ctx, objectTypeID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get object type attributes: %w", err)), nil
+	}
+
+	if !attrResponse.Success {
+		return NewErrorResponse(fmt.Errorf("failed to get object type attributes: %s", attrResponse.Error)), nil
+	}
+
+	// Build name-to-ID mapping using proper type handling
+	attrData := attrResponse.Data.(map[string]interface{})
+	attributesRaw := attrData["attributes"]
+	nameToID := make(map[string]string)
+	
+	// Handle the attributes as they come from the API
+	switch attrs := attributesRaw.(type) {
+	case []*models.ObjectTypeAttributeScheme:
+		for _, attr := range attrs {
+			nameToID[attr.Name] = attr.ID
+		}
+	case []interface{}:
+		for _, attr := range attrs {
+			if attrMap, ok := attr.(map[string]interface{}); ok {
+				if id, ok := attrMap["id"].(string); ok {
+					if name, ok := attrMap["name"].(string); ok {
+						nameToID[name] = id
+					}
+				}
+			}
+		}
+	default:
+		return NewErrorResponse(fmt.Errorf("unexpected attributes type: %T", attributesRaw)), nil
+	}
+
+	// Convert map[string]interface{} to ObjectPayloadScheme attributes using resolved IDs
+	var objectAttributes []*models.ObjectPayloadAttributeScheme
+	
+	for key, value := range attributes {
+		// Try to resolve attribute name to ID
+		attributeID := key
+		if id, found := nameToID[key]; found {
+			attributeID = id
+		}
+		
+		attr := &models.ObjectPayloadAttributeScheme{
+			ObjectTypeAttributeID: attributeID,
+			ObjectAttributeValues: []*models.ObjectPayloadAttributeValueScheme{
+				{
+					Value: fmt.Sprintf("%v", value),
+				},
+			},
+		}
+		objectAttributes = append(objectAttributes, attr)
+	}
+
+	payload := &models.ObjectPayloadScheme{
+		ObjectTypeID: objectTypeID,
+		Attributes:   objectAttributes,
+	}
+
+	// Debug output
+	fmt.Printf("DEBUG: Creating object with payload: ObjectTypeID=%s, AttributeCount=%d\n", objectTypeID, len(objectAttributes))
+	fmt.Printf("DEBUG: NameToID mapping: %+v\n", nameToID)
+	for i, attr := range objectAttributes {
+		fmt.Printf("DEBUG: Attribute[%d]: ID=%s, ValueCount=%d\n", i, attr.ObjectTypeAttributeID, len(attr.ObjectAttributeValues))
+		if len(attr.ObjectAttributeValues) > 0 {
+			fmt.Printf("DEBUG: FirstValue=%s\n", attr.ObjectAttributeValues[0].Value)
+		}
+	}
+
+	object, response, err := ac.assetsAPI.Object.Create(ctx, ac.workspaceID, payload)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to create object: %w", err)), nil
+	}
+
+	if response.Code != 201 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object":      object,
+		"object_type": objectTypeID,
+		"message":     fmt.Sprintf("Successfully created object in object type %s", objectTypeID),
+		"resolved_attributes": nameToID,
+	}), nil
+}
+
+// CreateObjectTypeAttribute creates a new attribute on an object type
+func (ac *AssetsClient) CreateObjectTypeAttribute(ctx context.Context, objectTypeID string, payload *models.ObjectTypeAttributePayloadScheme) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	attribute, response, err := ac.assetsAPI.ObjectTypeAttribute.Create(ctx, ac.workspaceID, objectTypeID, payload)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to create object type attribute: %w", err)), nil
+	}
+
+	if response.Code != 201 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"attribute":      attribute,
+		"object_type_id": objectTypeID,
+		"message":        fmt.Sprintf("Successfully created attribute '%s' on object type %s", payload.Name, objectTypeID),
+	}), nil
+}
