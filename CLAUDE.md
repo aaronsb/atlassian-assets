@@ -143,6 +143,101 @@ When implementing MCP mode, ensure version information is available as a resourc
 }
 ```
 
+## MCP Server Integration
+
+### Current Status
+- **MCP Server**: Implemented at `/cmd/assets/mcp/main.go` using official MCP Go SDK v0.2.0
+- **Registration**: Added to Claude Code environment as `atlassian-assets` server
+- **Tools Available**: 13 tools (foundation + composite functions) with AI-specific guidance
+- **Resources**: Version information and tool capabilities exposed
+
+### Environment Restart Requirement
+**IMPORTANT**: When MCP server changes are made, Claude Code environment must be restarted to pick up the new server configuration. 
+
+**Process**: 
+1. Make changes to MCP server code
+2. Rebuild the server: `go build -o mcp-server ./cmd/assets/mcp`
+3. Ask user to restart Claude Code environment
+4. Test MCP server functionality after restart
+
+### Authentication Configuration
+The MCP server uses the same authentication configuration as the CLI tool:
+
+**Option 1: .env file (recommended)**
+```bash
+# Create .env file in the directory where you run the MCP server
+ATLASSIAN_ASSETS_EMAIL=your-email@example.com
+ATLASSIAN_ASSETS_API_TOKEN=your-api-token
+ATLASSIAN_ASSETS_HOST=your-instance.atlassian.net
+ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
+```
+
+**Option 2: Environment variables**
+```bash
+# Set environment variables in the shell or AI client configuration
+export ATLASSIAN_ASSETS_EMAIL=your-email@example.com
+export ATLASSIAN_ASSETS_API_TOKEN=your-api-token
+export ATLASSIAN_ASSETS_HOST=your-instance.atlassian.net
+export ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
+```
+
+**For AI clients using MCP:**
+Configure the MCP server with environment variables in your AI client settings:
+```json
+{
+  "atlassian-assets": {
+    "command": "/path/to/mcp-server",
+    "env": {
+      "ATLASSIAN_ASSETS_EMAIL": "your-email@example.com",
+      "ATLASSIAN_ASSETS_API_TOKEN": "your-api-token",
+      "ATLASSIAN_ASSETS_HOST": "your-instance.atlassian.net",
+      "ATLASSIAN_ASSETS_WORKSPACE_ID": "your-workspace-id"
+    }
+  }
+}
+```
+
+### MCP Server Commands
+```bash
+# Add server to environment
+claude mcp add atlassian-assets /home/aaron/Projects/ai/mcp/jira-insights/mcp-server
+
+# List registered servers
+claude mcp list
+
+# Remove server (if needed)
+claude mcp remove atlassian-assets
+```
+
+### MCP Development Tools
+
+**mcptools** - Go-based MCP server inspection tool (https://github.com/f/mcptools)
+
+```bash
+# Install mcptools
+go install github.com/f/mcptools/cmd/mcptools@latest
+
+# Inspect MCP server tools without restarting Claude
+mcptools tools ./mcp-server
+mcptools tools ./mcp-server -f json  # Get detailed JSON schemas
+
+# List resources
+mcptools resources ./mcp-server
+
+# Test tool calls
+mcptools call ./mcp-server -t assets_list_schemas
+
+# Interactive shell
+mcptools shell ./mcp-server
+```
+
+**Development Workflow**:
+1. Make changes to MCP server code
+2. Rebuild: `go build -o mcp-server ./cmd/assets/mcp`
+3. Test with mcptools: `mcptools tools ./mcp-server`
+4. For full integration testing: Ask user to restart Claude environment
+5. Compare CLI vs MCP workflows
+
 ## Remember
 
 1. **Always update version before releases**
@@ -150,3 +245,4 @@ When implementing MCP mode, ensure version information is available as a resourc
 3. **Document breaking changes in releases**
 4. **Maintain MCP compatibility in architecture**
 5. **Keep SDK workarounds documented**
+6. **Restart Claude Code environment after MCP server changes**

@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-//go:embed workflow_hints.json
+//go:embed workflow_hints.json ai_workflow_hints.json ai_tool_semantics.json ai_error_recovery.json
 var hintsFS embed.FS
 
 // HintsLibrary represents the centralized hints configuration
@@ -55,7 +55,104 @@ type Category struct {
 	Icon        string `json:"icon"`
 }
 
+// AI-specific hint structures
+type AIHintsLibrary struct {
+	Version     string                    `json:"version"`
+	Description string                    `json:"description"`
+	AIWorkflows map[string]AIWorkflow     `json:"ai_workflows"`
+}
+
+type AIWorkflow struct {
+	Description     string    `json:"description"`
+	SemanticContext string    `json:"semantic_context"`
+	Steps           []AIStep  `json:"steps"`
+}
+
+type AIStep struct {
+	ID               string                 `json:"id"`
+	ToolName         string                 `json:"tool_name"`
+	Parameters       map[string]interface{} `json:"parameters"`
+	SuccessIndicators []string              `json:"success_indicators"`
+	NextActions      []AIAction             `json:"next_actions"`
+}
+
+type AIAction struct {
+	Tool       string                 `json:"tool"`
+	Reason     string                 `json:"reason"`
+	Confidence string                 `json:"confidence"`
+	Parameters map[string]interface{} `json:"parameters"`
+}
+
+type AIToolSemanticsLibrary struct {
+	Version         string                    `json:"version"`
+	Description     string                    `json:"description"`
+	AIToolSemantics map[string]AIToolSemantic `json:"ai_tool_semantics"`
+}
+
+type AIToolSemantic struct {
+	SemanticDescription string                    `json:"semantic_description"`
+	OperationType       string                    `json:"operation_type"`
+	ParameterSemantics  map[string]ParameterInfo  `json:"parameter_semantics"`
+	ReturnSemantics     ReturnSemantics           `json:"return_semantics"`
+	AIDecisionFramework AIDecisionFramework       `json:"ai_decision_framework"`
+}
+
+type ParameterInfo struct {
+	Description string   `json:"description"`
+	Constraints string   `json:"constraints"`
+	Examples    []string `json:"examples"`
+}
+
+type ReturnSemantics struct {
+	SuccessPatterns     map[string]string `json:"success_patterns"`
+	ContextPreservation []string          `json:"context_preservation"`
+}
+
+type AIDecisionFramework struct {
+	WhenToUse    []string            `json:"when_to_use"`
+	AvoidWhen    []string            `json:"avoid_when"`
+	Alternatives map[string]string   `json:"alternatives"`
+}
+
+type AIErrorRecoveryLibrary struct {
+	Version         string                           `json:"version"`
+	Description     string                           `json:"description"`
+	AIErrorRecovery map[string]map[string]ErrorInfo  `json:"ai_error_recovery"`
+}
+
+type ErrorInfo struct {
+	ErrorPattern    string            `json:"error_pattern"`
+	RecoveryActions []RecoveryAction  `json:"recovery_actions"`
+	Explanation     string            `json:"explanation"`
+	PreventionTip   string            `json:"prevention_tip"`
+}
+
+type RecoveryAction struct {
+	Tool       string                 `json:"tool"`
+	Reason     string                 `json:"reason"`
+	Parameters map[string]interface{} `json:"parameters"`
+	Confidence string                 `json:"confidence"`
+}
+
+// AI Guidance response structure
+type AIGuidance struct {
+	OperationSummary string                 `json:"operation_summary"`
+	NextActions      []AIAction             `json:"next_recommended_actions"`
+	WorkflowContext  WorkflowContext        `json:"workflow_context"`
+	SemanticContext  map[string]interface{} `json:"semantic_context"`
+}
+
+type WorkflowContext struct {
+	CurrentState          string   `json:"current_state"`
+	CompletionPercentage  int      `json:"completion_percentage"`
+	AvailableNextSteps    []string `json:"available_next_steps"`
+	RequiredNextSteps     []string `json:"required_next_steps"`
+}
+
 var globalHints *HintsLibrary
+var globalAIHints *AIHintsLibrary
+var globalAIToolSemantics *AIToolSemanticsLibrary
+var globalAIErrorRecovery *AIErrorRecoveryLibrary
 
 // LoadHints loads the hints library from embedded JSON
 func LoadHints() (*HintsLibrary, error) {
@@ -307,4 +404,256 @@ func GetWorkflowVisualization() map[string]interface{} {
 	}
 	
 	return visualization
+}
+
+// AI-specific loading functions
+func LoadAIHints() (*AIHintsLibrary, error) {
+	if globalAIHints != nil {
+		return globalAIHints, nil
+	}
+
+	data, err := hintsFS.ReadFile("ai_workflow_hints.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read AI hints file: %w", err)
+	}
+
+	var aiHints AIHintsLibrary
+	if err := json.Unmarshal(data, &aiHints); err != nil {
+		return nil, fmt.Errorf("failed to parse AI hints JSON: %w", err)
+	}
+
+	globalAIHints = &aiHints
+	return globalAIHints, nil
+}
+
+func LoadAIToolSemantics() (*AIToolSemanticsLibrary, error) {
+	if globalAIToolSemantics != nil {
+		return globalAIToolSemantics, nil
+	}
+
+	data, err := hintsFS.ReadFile("ai_tool_semantics.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read AI tool semantics file: %w", err)
+	}
+
+	var aiToolSemantics AIToolSemanticsLibrary
+	if err := json.Unmarshal(data, &aiToolSemantics); err != nil {
+		return nil, fmt.Errorf("failed to parse AI tool semantics JSON: %w", err)
+	}
+
+	globalAIToolSemantics = &aiToolSemantics
+	return globalAIToolSemantics, nil
+}
+
+func LoadAIErrorRecovery() (*AIErrorRecoveryLibrary, error) {
+	if globalAIErrorRecovery != nil {
+		return globalAIErrorRecovery, nil
+	}
+
+	data, err := hintsFS.ReadFile("ai_error_recovery.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read AI error recovery file: %w", err)
+	}
+
+	var aiErrorRecovery AIErrorRecoveryLibrary
+	if err := json.Unmarshal(data, &aiErrorRecovery); err != nil {
+		return nil, fmt.Errorf("failed to parse AI error recovery JSON: %w", err)
+	}
+
+	globalAIErrorRecovery = &aiErrorRecovery
+	return globalAIErrorRecovery, nil
+}
+
+// GetAIGuidance generates AI-specific guidance for a tool operation
+func GetAIGuidance(toolName string, context map[string]interface{}) (*AIGuidance, error) {
+	// Load AI tool semantics for context
+	semantics, err := LoadAIToolSemantics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AI tool semantics: %w", err)
+	}
+
+	// Load AI workflows for next steps
+	workflows, err := LoadAIHints()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AI workflows: %w", err)
+	}
+
+	// Get tool-specific semantic information
+	toolSemantic, exists := semantics.AIToolSemantics[toolName]
+	if !exists {
+		return &AIGuidance{
+			OperationSummary: fmt.Sprintf("Executed %s operation", toolName),
+			NextActions:      []AIAction{},
+			WorkflowContext: WorkflowContext{
+				CurrentState:         "operation_completed",
+				CompletionPercentage: 100,
+			},
+			SemanticContext: context,
+		}, nil
+	}
+
+	// Build operation summary
+	operationSummary := buildOperationSummary(toolName, toolSemantic, context)
+
+	// Determine next actions based on context and workflows
+	nextActions := determineNextActions(toolName, toolSemantic, workflows, context)
+
+	// Build workflow context
+	workflowContext := buildWorkflowContext(toolName, context)
+
+	return &AIGuidance{
+		OperationSummary: operationSummary,
+		NextActions:      nextActions,
+		WorkflowContext:  workflowContext,
+		SemanticContext:  context,
+	}, nil
+}
+
+// GetAIErrorRecovery provides recovery suggestions for AI agents
+func GetAIErrorRecovery(errorMessage string, context map[string]interface{}) ([]RecoveryAction, error) {
+	errorRecovery, err := LoadAIErrorRecovery()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load AI error recovery: %w", err)
+	}
+
+	// Search through error patterns
+	for _, errorCategory := range errorRecovery.AIErrorRecovery {
+		for _, errorInfo := range errorCategory {
+			if strings.Contains(strings.ToLower(errorMessage), strings.ToLower(errorInfo.ErrorPattern)) {
+				// Substitute context variables in recovery actions
+				var recoveryActions []RecoveryAction
+				for _, action := range errorInfo.RecoveryActions {
+					substitutedAction := RecoveryAction{
+						Tool:       action.Tool,
+						Reason:     substituteDirectVariables(action.Reason, context),
+						Confidence: action.Confidence,
+						Parameters: substituteParameterVariables(action.Parameters, context),
+					}
+					recoveryActions = append(recoveryActions, substitutedAction)
+				}
+				return recoveryActions, nil
+			}
+		}
+	}
+
+	// Default recovery action if no specific pattern matches
+	return []RecoveryAction{
+		{
+			Tool:       "assets_list_schemas",
+			Reason:     "Check available schemas and permissions",
+			Confidence: "medium",
+			Parameters: map[string]interface{}{},
+		},
+	}, nil
+}
+
+// Helper functions for AI guidance
+func buildOperationSummary(toolName string, toolSemantic AIToolSemantic, context map[string]interface{}) string {
+	// Build a meaningful operation summary based on tool semantics and context
+	if success, ok := context["success"].(bool); ok && success {
+		if resultCount, ok := context["result_count"].(int); ok && resultCount > 0 {
+			return fmt.Sprintf("Successfully executed %s - found %d results", toolName, resultCount)
+		}
+		return fmt.Sprintf("Successfully executed %s operation", toolName)
+	}
+	return fmt.Sprintf("Executed %s operation", toolName)
+}
+
+func determineNextActions(toolName string, toolSemantic AIToolSemantic, workflows *AIHintsLibrary, context map[string]interface{}) []AIAction {
+	var nextActions []AIAction
+
+	// Look for workflow-based next actions
+	for _, workflow := range workflows.AIWorkflows {
+		for _, step := range workflow.Steps {
+			if step.ToolName == toolName {
+				// Add next actions from the workflow
+				for _, action := range step.NextActions {
+					substitutedAction := AIAction{
+						Tool:       action.Tool,
+						Reason:     substituteDirectVariables(action.Reason, context),
+						Confidence: action.Confidence,
+						Parameters: substituteParameterVariables(action.Parameters, context),
+					}
+					nextActions = append(nextActions, substitutedAction)
+				}
+				break
+			}
+		}
+	}
+
+	// If no workflow actions found, provide semantic-based suggestions
+	if len(nextActions) == 0 {
+		nextActions = getSemanticBasedNextActions(toolName, toolSemantic, context)
+	}
+
+	return nextActions
+}
+
+func getSemanticBasedNextActions(toolName string, toolSemantic AIToolSemantic, context map[string]interface{}) []AIAction {
+	var actions []AIAction
+
+	// Provide context-appropriate next actions based on tool semantics
+	switch toolSemantic.OperationType {
+	case "foundation":
+		if toolName == "assets_search" {
+			if resultCount, ok := context["result_count"].(int); ok && resultCount > 0 {
+				actions = append(actions, AIAction{
+					Tool:       "assets_get",
+					Reason:     "Get detailed information about the first result",
+					Confidence: "high",
+					Parameters: map[string]interface{}{
+						"id": "{first_result_id}",
+					},
+				})
+			}
+		}
+	case "composite":
+		// Composite operations typically lead to validation or further analysis
+		actions = append(actions, AIAction{
+			Tool:       "assets_validate",
+			Reason:     "Validate the results of the composite operation",
+			Confidence: "medium",
+			Parameters: map[string]interface{}{},
+		})
+	}
+
+	return actions
+}
+
+func buildWorkflowContext(toolName string, context map[string]interface{}) WorkflowContext {
+	// Determine workflow state based on tool name and context
+	currentState := "operation_completed"
+	completionPercentage := 100
+
+	// Adjust based on tool semantics
+	switch toolName {
+	case "assets_search":
+		currentState = "search_completed"
+		completionPercentage = 25
+	case "assets_create_object_type":
+		currentState = "object_type_created"
+		completionPercentage = 30
+	case "assets_get":
+		currentState = "object_analyzed"
+		completionPercentage = 50
+	}
+
+	return WorkflowContext{
+		CurrentState:         currentState,
+		CompletionPercentage: completionPercentage,
+		AvailableNextSteps:   []string{"validation", "enhancement", "analysis"},
+		RequiredNextSteps:    []string{},
+	}
+}
+
+func substituteParameterVariables(parameters map[string]interface{}, context map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for key, value := range parameters {
+		if strValue, ok := value.(string); ok {
+			result[key] = substituteDirectVariables(strValue, context)
+		} else {
+			result[key] = value
+		}
+	}
+	return result
 }

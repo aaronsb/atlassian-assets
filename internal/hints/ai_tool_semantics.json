@@ -1,0 +1,225 @@
+{
+  "version": "1.0.0",
+  "description": "AI tool semantic descriptions and decision frameworks",
+  "ai_tool_semantics": {
+    "assets_search": {
+      "semantic_description": "Locate assets using pattern matching or AQL query language",
+      "operation_type": "foundation",
+      "parameter_semantics": {
+        "simple": {
+          "description": "Natural language search term for name/key matching",
+          "constraints": "Exact matches only - use '*' for wildcard exploration",
+          "examples": ["MacBook Pro", "SERVER-001", "*"]
+        },
+        "schema": {
+          "description": "Schema ID or name to limit search scope",
+          "constraints": "Required for effective searching - prevents workspace-wide queries",
+          "examples": ["7", "IT_Equipment", "computers"]
+        },
+        "limit": {
+          "description": "Maximum number of results to return",
+          "constraints": "Range 1-1000, recommend 50 for exploration",
+          "examples": ["50", "100", "25"]
+        },
+        "offset": {
+          "description": "Skip N results for pagination",
+          "constraints": "Use for retrieving large result sets",
+          "examples": ["0", "50", "100"]
+        }
+      },
+      "return_semantics": {
+        "success_patterns": {
+          "found_results": "objects array populated with matching assets",
+          "no_results": "empty objects array - suggests broadening search or checking schema",
+          "partial_results": "results may be paginated - check total count vs returned count"
+        },
+        "context_preservation": [
+          "workspace_id", "schema_context", "search_parameters", "pagination_state"
+        ]
+      },
+      "ai_decision_framework": {
+        "when_to_use": [
+          "User mentions finding/locating specific assets",
+          "Need to verify if assets exist before creating",
+          "Exploring asset inventory in a schema",
+          "Looking for assets with specific naming patterns"
+        ],
+        "avoid_when": [
+          "Exploring schema structure (use assets_browse_schema)",
+          "Need all assets without filtering (use assets_list)",
+          "Working with object types vs instances"
+        ],
+        "alternatives": {
+          "assets_browse_schema": "Use when exploring schema structure rather than finding specific assets",
+          "assets_list": "Use when you want all assets in a schema without filtering"
+        }
+      }
+    },
+    "assets_create_object_type": {
+      "semantic_description": "Create a new object type within a schema for asset categorization",
+      "operation_type": "foundation",
+      "parameter_semantics": {
+        "schema": {
+          "description": "Target schema ID or name where object type will be created",
+          "constraints": "Must exist and user must have create permissions",
+          "examples": ["7", "IT_Equipment", "facilities"]
+        },
+        "name": {
+          "description": "Human-readable name for the object type",
+          "constraints": "Must be unique within schema, descriptive",
+          "examples": ["Servers", "Network Equipment", "Software Licenses"]
+        },
+        "description": {
+          "description": "Optional detailed description of the object type's purpose",
+          "constraints": "Helps with future understanding and maintenance",
+          "examples": ["Physical and virtual servers in the datacenter"]
+        },
+        "parent": {
+          "description": "Optional parent object type for hierarchical organization",
+          "constraints": "Must be existing object type ID in same schema",
+          "examples": ["42", "infrastructure_equipment"]
+        }
+      },
+      "return_semantics": {
+        "success_patterns": {
+          "object_type_created": "object_type object with ID and basic structure",
+          "has_default_attributes": "object type includes minimal default attributes"
+        },
+        "context_preservation": [
+          "schema_id", "object_type_id", "parent_hierarchy"
+        ]
+      },
+      "ai_decision_framework": {
+        "when_to_use": [
+          "User wants to create new asset categories",
+          "Need to model new types of assets in existing schema",
+          "Building hierarchical asset classification"
+        ],
+        "avoid_when": [
+          "Creating individual assets (use assets_create_object)",
+          "Modifying existing object types (use assets_update_object_type)"
+        ],
+        "alternatives": {
+          "assets_create_object": "Use for creating individual asset instances",
+          "assets_copy_object_type": "Use for creating variations of existing types"
+        }
+      }
+    },
+    "assets_get": {
+      "semantic_description": "Retrieve complete details of a specific asset object",
+      "operation_type": "foundation",
+      "parameter_semantics": {
+        "id": {
+          "description": "Unique asset object ID",
+          "constraints": "Must be exact object ID (like OBJ-123)",
+          "examples": ["OBJ-123", "OBJ-456"]
+        }
+      },
+      "return_semantics": {
+        "success_patterns": {
+          "asset_found": "Complete asset object with all attributes and relationships",
+          "has_attributes": "Asset includes all defined attribute values",
+          "has_relationships": "Asset may include related objects"
+        },
+        "context_preservation": [
+          "object_id", "object_type_id", "schema_id", "attribute_structure"
+        ]
+      },
+      "ai_decision_framework": {
+        "when_to_use": [
+          "Need complete details of a specific asset",
+          "Verifying asset creation or updates",
+          "Analyzing asset structure before modifications",
+          "Understanding asset relationships"
+        ],
+        "avoid_when": [
+          "Searching for assets by name (use assets_search)",
+          "Exploring multiple assets (use assets_list or assets_browse_schema)"
+        ],
+        "alternatives": {
+          "assets_search": "Use when you need to find assets by name or properties",
+          "assets_list": "Use when you want to see multiple assets in a schema"
+        }
+      }
+    },
+    "assets_browse_schema": {
+      "semantic_description": "Explore schema structure, object types, and asset distribution",
+      "operation_type": "composite",
+      "parameter_semantics": {
+        "schema_id": {
+          "description": "Schema ID or name to explore",
+          "constraints": "Must be existing schema with read permissions",
+          "examples": ["7", "IT_Equipment", "facilities"]
+        }
+      },
+      "return_semantics": {
+        "success_patterns": {
+          "schema_structure": "Complete schema overview with object types and counts",
+          "object_types_found": "List of all object types in schema",
+          "asset_distribution": "Count of assets per object type"
+        },
+        "context_preservation": [
+          "schema_id", "object_type_hierarchy", "asset_counts"
+        ]
+      },
+      "ai_decision_framework": {
+        "when_to_use": [
+          "User wants to understand schema organization",
+          "Exploring what types of assets exist",
+          "Planning asset creation or migration",
+          "Understanding asset hierarchy"
+        ],
+        "avoid_when": [
+          "Looking for specific assets (use assets_search)",
+          "Need detailed asset information (use assets_get)"
+        ],
+        "alternatives": {
+          "assets_search": "Use when looking for specific assets within the schema",
+          "assets_list_schemas": "Use when exploring available schemas"
+        }
+      }
+    },
+    "assets_complete_object": {
+      "semantic_description": "Intelligently complete asset creation with validation and defaults",
+      "operation_type": "composite",
+      "parameter_semantics": {
+        "type": {
+          "description": "Object type ID where the asset will be created",
+          "constraints": "Must be existing object type with create permissions",
+          "examples": ["42", "133"]
+        },
+        "data": {
+          "description": "Partial asset data as JSON with known properties",
+          "constraints": "Will be enhanced with intelligent defaults and validation",
+          "examples": ["{\"name\":\"SERVER-001\"}", "{\"name\":\"John's MacBook\",\"owner\":\"john.doe\"}"]
+        }
+      },
+      "return_semantics": {
+        "success_patterns": {
+          "completion_suggestions": "Enhanced data with intelligent defaults",
+          "validation_results": "Field validation with error explanations",
+          "ready_for_creation": "Completed data ready for assets_create_object"
+        },
+        "context_preservation": [
+          "object_type_id", "completion_state", "required_fields", "suggested_values"
+        ]
+      },
+      "ai_decision_framework": {
+        "when_to_use": [
+          "Creating assets with partial information",
+          "Need intelligent defaults and validation",
+          "Uncertain about required fields",
+          "Want guided asset creation"
+        ],
+        "avoid_when": [
+          "Have complete asset data (use assets_create_object directly)",
+          "Just validating existing data (use assets_validate)"
+        ],
+        "alternatives": {
+          "assets_create_object": "Use when you have complete, validated asset data",
+          "assets_validate": "Use for validation without completion suggestions"
+        }
+      }
+    }
+  }
+}
