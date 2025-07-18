@@ -3,7 +3,7 @@
 ## Test Strategy
 
 **Approach:** Live environment testing with dedicated test schema
-**Coverage:** All 21 CLI commands with subcommands and contextual hints validation
+**Coverage:** All 24 CLI commands with subcommands and contextual hints validation
 **Environment:** Real Atlassian Assets workspace with test data isolation
 
 ## Test Infrastructure
@@ -26,7 +26,7 @@ assets schema list | grep CLI_Test_Schema
 ## Test Categories
 
 ### 1. Core CRUD Operations
-**Commands:** `create`, `list`, `get`, `update`, `delete`, `search`
+**Commands:** `create`, `list`, `get`, `update`, `delete`, `remove`, `search`
 
 ### 2. Schema Management  
 **Commands:** `schema`, `attributes`, `validate`
@@ -241,28 +241,83 @@ assets schema list | grep CLI_Test_Schema
 
 ---
 
-### Test 10: `delete` - Delete an asset object
+### Test 10: `delete` - Delete object types and instances with safety controls
 
 **Test Cases:**
-- [ ] **T10.1** - Delete specific object
+- [ ] **T10.1** - Delete object type with safety checks
   ```bash
   assets delete --help
-  assets delete --id {test_object_id}
+  assets delete object-type --help
+  assets delete object-type --id {test_object_type_id} --confirm
   ```
-- [ ] **T10.2** - Handle non-existent object deletion
-- [ ] **T10.3** - Validate deletion confirmation
+- [ ] **T10.2** - Delete single instance
+  ```bash
+  assets delete instance --id {test_instance_id} --confirm
+  ```
+- [ ] **T10.3** - Delete multiple instances
+  ```bash
+  assets delete instance --id {id1},{id2},{id3} --confirm
+  ```
+- [ ] **T10.4** - Delete instances by AQL query
+  ```bash
+  assets delete instance --query "Name like 'test%'" --limit 5 --confirm
+  ```
+- [ ] **T10.5** - Safety validation (no ATLASSIAN_ASSETS_ALLOW_DELETE)
+- [ ] **T10.6** - Validate contextual hints with warnings about cascading deletions
 
 **Expected Results:**
-- Objects deleted successfully when they exist
-- Appropriate error handling for non-existent objects
-- Clear feedback on deletion operations
+- Delete operations blocked without ATLASSIAN_ASSETS_ALLOW_DELETE=true
+- Confirmation required for all delete operations (--confirm or --force)
+- Contextual hints warn about cascading effects and cleanup options
+- Clear distinction between object type deletion (permanent, cascading) and instance deletion
 
 ---
 
-### Test 11: `extract` - Extract attributes from objects and object types
+### Test 11: `remove` - Remove attributes, relationships, and properties from existing assets
 
 **Test Cases:**
-- [ ] **T11.1** - Extract attributes from object type
+- [ ] **T11.1** - Remove attribute from object type
+  ```bash
+  assets remove --help
+  assets remove attribute --help
+  assets remove attribute --type-id {test_object_type_id} --attribute-id {attr_id} --confirm
+  ```
+- [ ] **T11.2** - Remove attribute by name
+  ```bash
+  assets remove attribute --type-id {test_object_type_id} --attribute-name "Test Attribute" --confirm
+  ```
+- [ ] **T11.3** - Remove relationship from object
+  ```bash
+  assets remove relationship --object-id {test_object_id} --relationship-id {rel_id} --confirm
+  ```
+- [ ] **T11.4** - Remove relationship by type and target
+  ```bash
+  assets remove relationship --object-id {test_object_id} --relationship-type "connects_to" --target-id {target_id} --confirm
+  ```
+- [ ] **T11.5** - Remove single property from object
+  ```bash
+  assets remove property --object-id {test_object_id} --property-name "Status" --confirm
+  ```
+- [ ] **T11.6** - Remove multiple properties from object
+  ```bash
+  assets remove property --object-id {test_object_id} --property-name "Status,Location,Owner" --confirm
+  ```
+- [ ] **T11.7** - Validate contextual hints for remove operations
+- [ ] **T11.8** - Error handling for missing required flags
+
+**Expected Results:**
+- Remove operations modify existing entities without deleting them
+- Confirmation required for all remove operations (--confirm or --force)
+- Contextual hints provide validation and cleanup guidance
+- Clear error messages for missing required parameters
+- Successful batch operations for multiple properties
+
+---
+
+### Test 12: `extract` - Extract attributes from objects and object types
+
+**Test Cases:**
+- [ ] **T12.1** - Extract attributes from object type
   ```bash
   assets extract --help
   assets extract attributes --from-object-type {test_type}

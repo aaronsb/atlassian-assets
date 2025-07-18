@@ -51,6 +51,7 @@ func init() {
 	rootCmd.AddCommand(getCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(removeCmd)
 	rootCmd.AddCommand(searchCmd)
 	rootCmd.AddCommand(attributesCmd)
 	rootCmd.AddCommand(validateCmd)

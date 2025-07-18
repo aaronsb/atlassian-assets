@@ -19,6 +19,7 @@ type Config struct {
 	Profile       string
 	CacheDir      string
 	CacheTTLHours int
+	AllowDelete   bool
 }
 
 // LoadConfig loads configuration from environment variables and .env file
@@ -39,6 +40,14 @@ func LoadConfig() (*Config, error) {
 		}
 	}
 
+	// Parse allow delete flag
+	allowDelete := false // default disabled for safety
+	if deleteStr := os.Getenv("ATLASSIAN_ASSETS_ALLOW_DELETE"); deleteStr != "" {
+		if delete, err := strconv.ParseBool(deleteStr); err == nil {
+			allowDelete = delete
+		}
+	}
+
 	config := &Config{
 		Email:         os.Getenv("ATLASSIAN_EMAIL"),
 		Host:          os.Getenv("ATLASSIAN_HOST"),
@@ -47,6 +56,7 @@ func LoadConfig() (*Config, error) {
 		Profile:       os.Getenv("ATLASSIAN_ASSETS_PROFILE"),
 		CacheDir:      os.Getenv("ATLASSIAN_ASSETS_CACHE_DIR"),
 		CacheTTLHours: cacheTTLHours,
+		AllowDelete:   allowDelete,
 	}
 
 	// Validate required fields

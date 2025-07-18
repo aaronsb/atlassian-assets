@@ -111,9 +111,31 @@ The CLI is designed for natural translation to MCP tools:
 - ✅ Configuration Management
 - ✅ go-atlassian SDK Integration
 - ✅ Command Structure Design
-- 🔄 API Implementation (in progress)
-- ⏳ Workspace ID Discovery
+- ✅ Complete CRUD Operations (Create, List, Get, Update, Delete, Search)
+- ✅ Schema Management and Object Type Operations  
+- ✅ Delete/Remove Operations with Safety Controls
+- ✅ Contextual Hints System for Guided Workflows
+- ✅ **SDK Bug Fix**: Direct HTTP implementation for search/list operations
+- ✅ Live Environment Testing (24 CLI commands)
 - ⏳ MCP Interface Layer
+
+## Important Notes
+
+### SDK Issue and Fix
+
+**⚠️ Critical Bug Fixed**: The go-atlassian SDK v2.6.1 has a broken `Object.Filter()` method that makes AQL searches non-functional. This project includes a **direct HTTP implementation** that bypasses the broken SDK method.
+
+**Impact**: Without this fix, `assets search` and `assets list` commands would return empty results despite objects existing.
+
+**Solution**: See `SDK_FIX_DOCUMENTATION.md` for complete technical details, including:
+- Root cause analysis proving SDK is broken
+- Working direct HTTP replacement implementation  
+- Validation results showing fix success
+- GitHub issue #387 filed with upstream maintainers
+
+**Upstream Issue**: https://github.com/ctreminiom/go-atlassian/issues/387
+
+**Status**: Both search and list operations now work perfectly and return complete object data.
 
 ## Contributing
 

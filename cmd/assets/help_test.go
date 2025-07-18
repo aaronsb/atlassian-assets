@@ -27,6 +27,8 @@ func TestHelpCommands(t *testing.T) {
 		{"schema help", []string{"schema", "--help"}, "Manage asset schemas"},
 		{"list help", []string{"list", "--help"}, "List asset objects"},
 		{"create help", []string{"create", "--help"}, "Create new object types"},
+		{"delete help", []string{"delete", "--help"}, "Delete asset object types and instances"},
+		{"remove help", []string{"remove", "--help"}, "Remove specific attributes, relationships, and properties"},
 		{"workflows help", []string{"workflows", "--help"}, "Explore available workflows"},
 		{"browse help", []string{"browse", "--help"}, "Composite commands"},
 		{"catalog help", []string{"catalog", "--help"}, "Global catalog browsers"},
@@ -79,7 +81,7 @@ func TestCommandStructure(t *testing.T) {
 	expectedCommands := []string{
 		"apply", "attributes", "browse", "catalog", "complete", "completion",
 		"config", "copy-attributes", "create", "delete", "extract", "get",
-		"help", "list", "resolve", "schema", "search", "summary", "test",
+		"help", "list", "remove", "resolve", "schema", "search", "summary", "test",
 		"trace", "update", "validate", "workflows",
 	}
 	
@@ -112,6 +114,11 @@ func TestSubcommandStructure(t *testing.T) {
 		{"schema", "types", "List object types"},
 		{"create", "object-type", "Create object type"},
 		{"create", "instance", "Create instance"},
+		{"delete", "object-type", "Delete an object type"},
+		{"delete", "instance", "Delete object instances"},
+		{"remove", "attribute", "Remove an attribute from an object type"},
+		{"remove", "relationship", "Remove a relationship from an object"},
+		{"remove", "property", "Remove a property value from an object"},
 		{"browse", "hierarchy", "Browse hierarchy"},
 		{"browse", "children", "Browse children"},
 		{"browse", "attrs", "Browse attributes"},

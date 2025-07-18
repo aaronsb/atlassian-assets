@@ -405,6 +405,116 @@
           "category": "enhancement"
         }
       ]
+    },
+    "delete_object_type": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "⚠️ Warning: All instances of this object type were also deleted",
+          "priority": "high",
+          "category": "warning"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Clean up orphaned references: `{cleanup_references_command}`",
+          "priority": "medium",
+          "category": "maintenance"
+        },
+        {
+          "condition": "force",
+          "message": "💡 Consider enabling delete protection: Set ATLASSIAN_ASSETS_ALLOW_DELETE=false",
+          "priority": "medium",
+          "category": "security"
+        }
+      ]
+    },
+    "delete_instances": {
+      "hints": [
+        {
+          "condition": "has_errors",
+          "message": "⚠️ Some instances couldn't be deleted - check API permissions",
+          "priority": "high",
+          "category": "troubleshooting"
+        },
+        {
+          "condition": "success && deleted_count > 1",
+          "message": "💡 Verify deletions: `{verify_deletions_command}`",
+          "priority": "medium",
+          "category": "verification"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Clean up references: `{cleanup_references_command}`",
+          "priority": "low",
+          "category": "maintenance"
+        }
+      ]
+    },
+    "remove_attribute": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "⚠️ Warning: Attribute data was removed from all existing objects",
+          "priority": "high",
+          "category": "warning"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Validate object type: `{validate_command}`",
+          "priority": "medium",
+          "category": "verification"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Consider adding replacement attribute: `{add_attribute_command}`",
+          "priority": "low",
+          "category": "enhancement"
+        }
+      ]
+    },
+    "remove_relationship": {
+      "hints": [
+        {
+          "condition": "success",
+          "message": "💡 Verify connected objects: `{verify_connections_command}`",
+          "priority": "medium",
+          "category": "verification"
+        },
+        {
+          "condition": "success",
+          "message": "💡 Check for orphaned objects: `{check_orphans_command}`",
+          "priority": "medium",
+          "category": "maintenance"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Consider alternative relationships: `{browse_relationships_command}`",
+          "priority": "low",
+          "category": "enhancement"
+        }
+      ]
+    },
+    "remove_property": {
+      "hints": [
+        {
+          "condition": "has_errors",
+          "message": "⚠️ Some properties couldn't be removed - check if they're required",
+          "priority": "high",
+          "category": "troubleshooting"
+        },
+        {
+          "condition": "success",
+          "message": "💡 View updated object: `{view_object_command}`",
+          "priority": "medium",
+          "category": "verification"
+        },
+        {
+          "condition": "removed_count > 1",
+          "message": "💡 Validate object consistency: `{validate_command}`",
+          "priority": "medium",
+          "category": "verification"
+        }
+      ]
     }
   },
   "command_templates": {
@@ -433,7 +543,14 @@
     "browse_schema_command": "assets browse hierarchy --schema {dependency_schema_id}",
     "get_object_command": "assets get --id {object_id}",
     "fix_validation_command": "assets validate --fix --target {object_type_id}",
-    "apply_marketplace_command": "assets apply attributes --to-object-type {object_type_id} --marketplace"
+    "apply_marketplace_command": "assets apply attributes --to-object-type {object_type_id} --marketplace",
+    "cleanup_references_command": "assets trace dependencies --object-type {object_type_id} --cleanup-orphans",
+    "verify_deletions_command": "assets search --query \"objectTypeId = {object_type_id}\" --limit 5",
+    "verify_connections_command": "assets get --id {object_id} --show-relationships",
+    "check_orphans_command": "assets trace dependencies --relationship-type {relationship_type} --find-orphans",
+    "view_object_command": "assets get --id {object_id}",
+    "browse_relationships_command": "assets browse attrs --object-type {object_type_id} --relationship-types",
+    "add_attribute_command": "assets catalog attributes --pattern '{attribute_pattern}' --extract-to {object_type_id}"
   },
   "categories": {
     "essential": {
@@ -495,6 +612,21 @@
       "description": "Optimize performance and results",
       "priority": 4,
       "icon": "⚡"
+    },
+    "warning": {
+      "description": "Important warnings and cautionary information",
+      "priority": 1,
+      "icon": "⚠️"
+    },
+    "maintenance": {
+      "description": "Cleanup and maintenance tasks",
+      "priority": 3,
+      "icon": "🧹"
+    },
+    "security": {
+      "description": "Security and protection considerations",
+      "priority": 2,
+      "icon": "🔒"
     }
   }
 }

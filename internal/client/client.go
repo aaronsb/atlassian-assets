@@ -1,7 +1,9 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -127,6 +129,11 @@ func (ac *AssetsClient) GetConfig() *config.Config {
 func (ac *AssetsClient) Close() error {
 	// Clean up any resources if needed
 	return nil
+}
+
+// IsDeleteAllowed checks if delete operations are allowed
+func (ac *AssetsClient) IsDeleteAllowed() bool {
+	return ac.config.AllowDelete
 }
 
 // WithWorkspaceID sets the workspace ID for this client
@@ -277,31 +284,23 @@ func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit 
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
-	// Use AQL query to get all objects in schema (same working approach as SearchObjects)
+	// Use AQL query to get all objects in schema - now using direct HTTP call
 	query := fmt.Sprintf("objectSchemaId = %s", schemaID)
 	
-	fmt.Printf("DEBUG: Calling Filter with workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
-	objects, response, err := ac.assetsAPI.Object.Filter(ctx, ac.workspaceID, query, true, limit, 0)
+	fmt.Printf("DEBUG: ListObjects using direct HTTP call - workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
 	
-	if objects != nil {
-		fmt.Printf("DEBUG: Filter returned err=%v, response.Code=%d, objects.Total=%d\n", err, response.Code, objects.Total)
-	} else {
-		fmt.Printf("DEBUG: Filter returned err=%v, response.Code=%d, objects=nil\n", err, response.Code)
-	}
-	
+	// Use direct HTTP call to bypass broken SDK
+	objects, err := ac.searchObjectsDirect(ctx, query, limit)
 	if err != nil {
 		return NewErrorResponse(fmt.Errorf("failed to list objects: %w", err)), nil
 	}
 
-	if response.Code != 200 {
-		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
-	}
-
+	fmt.Printf("DEBUG: ListObjects direct HTTP call successful - found %d objects\n", objects.Total)
 	return NewSuccessResponse(map[string]interface{}{
 		"objects": objects.Values,
 		"total":   objects.Total,
 		"schema":  schemaID,
-		"method":  "aql_filter",
+		"method":  "direct_http",
 		"query":   query,
 	}), nil
 }
@@ -356,20 +355,80 @@ func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit i
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
-	objects, response, err := ac.assetsAPI.Object.Filter(ctx, ac.workspaceID, query, true, limit, 0)
+	fmt.Printf("DEBUG: SearchObjects using direct HTTP call - workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
+	
+	// Use direct HTTP call to bypass broken SDK
+	objects, err := ac.searchObjectsDirect(ctx, query, limit)
 	if err != nil {
 		return NewErrorResponse(fmt.Errorf("failed to search objects: %w", err)), nil
 	}
 
-	if response.Code != 200 {
-		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
-	}
-
+	fmt.Printf("DEBUG: SearchObjects direct HTTP call successful - found %d objects\n", objects.Total)
 	return NewSuccessResponse(map[string]interface{}{
 		"objects": objects.Values,
 		"total":   objects.Total,
 		"query":   query,
 	}), nil
+}
+
+// searchObjectsDirect bypasses the broken SDK and makes direct HTTP calls
+func (ac *AssetsClient) searchObjectsDirect(ctx context.Context, aqlQuery string, maxResults int) (*models.ObjectListResultScheme, error) {
+	// Build endpoint URL using API gateway (same as SDK)
+	endpoint := fmt.Sprintf("https://api.atlassian.com/jsm/assets/workspace/%s/v1/object/aql", 
+		ac.workspaceID)
+	
+	// Create request payload with all parameters
+	payload := map[string]interface{}{
+		"qlQuery":           aqlQuery,
+		"startAt":           0,
+		"maxResults":        maxResults,
+		"includeAttributes": true,
+	}
+	
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %w", err)
+	}
+	
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set headers
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	
+	// Set Basic Auth
+	auth := base64.StdEncoding.EncodeToString([]byte(ac.config.GetUsername() + ":" + ac.config.GetPassword()))
+	req.Header.Set("Authorization", "Basic " + auth)
+	
+	fmt.Printf("DEBUG: Direct HTTP POST to %s\n", endpoint)
+	fmt.Printf("DEBUG: Payload: %s\n", string(payloadBytes))
+	
+	// Make the request
+	resp, err := ac.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	fmt.Printf("DEBUG: Direct HTTP response status: %d\n", resp.StatusCode)
+	
+	if resp.StatusCode != 200 {
+		var errorBody bytes.Buffer
+		errorBody.ReadFrom(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, errorBody.String())
+	}
+	
+	// Parse response
+	var result models.ObjectListResultScheme
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	
+	return &result, nil
 }
 
 // CreateObjectType creates a new object type in the specified schema
@@ -526,4 +585,138 @@ func (ac *AssetsClient) CreateObjectTypeAttribute(ctx context.Context, objectTyp
 		"object_type_id": objectTypeID,
 		"message":        fmt.Sprintf("Successfully created attribute '%s' on object type %s", payload.Name, objectTypeID),
 	}), nil
+}
+
+// DeleteObjectType deletes an object type (and all its instances)
+func (ac *AssetsClient) DeleteObjectType(ctx context.Context, objectTypeID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	if !ac.config.AllowDelete {
+		return NewErrorResponse(fmt.Errorf("delete operations are disabled")), nil
+	}
+
+	_, response, err := ac.assetsAPI.ObjectType.Delete(ctx, ac.workspaceID, objectTypeID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to delete object type: %w", err)), nil
+	}
+
+	if response.Code != 204 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_type_id": objectTypeID,
+		"message":        fmt.Sprintf("Successfully deleted object type %s", objectTypeID),
+	}), nil
+}
+
+// DeleteObject deletes an object instance
+func (ac *AssetsClient) DeleteObject(ctx context.Context, objectID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	if !ac.config.AllowDelete {
+		return NewErrorResponse(fmt.Errorf("delete operations are disabled")), nil
+	}
+
+	response, err := ac.assetsAPI.Object.Delete(ctx, ac.workspaceID, objectID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to delete object: %w", err)), nil
+	}
+
+	if response.Code != 204 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_id": objectID,
+		"message":   fmt.Sprintf("Successfully deleted object %s", objectID),
+	}), nil
+}
+
+// GetObjectType gets object type details
+func (ac *AssetsClient) GetObjectType(ctx context.Context, objectTypeID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	objectType, response, err := ac.assetsAPI.ObjectType.Get(ctx, ac.workspaceID, objectTypeID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to get object type: %w", err)), nil
+	}
+
+	if response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(objectType), nil
+}
+
+// RemoveAttribute removes an attribute from an object type
+func (ac *AssetsClient) RemoveAttribute(ctx context.Context, objectTypeID, attributeID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	response, err := ac.assetsAPI.ObjectTypeAttribute.Delete(ctx, ac.workspaceID, attributeID)
+	if err != nil {
+		return NewErrorResponse(fmt.Errorf("failed to remove attribute: %w", err)), nil
+	}
+
+	if response.Code != 204 && response.Code != 200 {
+		return NewErrorResponse(fmt.Errorf("API error: %d - %s", response.Code, response.Bytes.String())), nil
+	}
+
+	return NewSuccessResponse(map[string]interface{}{
+		"object_type_id": objectTypeID,
+		"attribute_id":   attributeID,
+		"message":        fmt.Sprintf("Successfully removed attribute %s from object type %s", attributeID, objectTypeID),
+	}), nil
+}
+
+// RemoveRelationship removes a relationship from an object
+func (ac *AssetsClient) RemoveRelationship(ctx context.Context, objectID, relationshipID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Note: This is a placeholder implementation as the exact API endpoint
+	// for removing relationships may vary based on the Atlassian Assets API
+	return NewErrorResponse(fmt.Errorf("remove relationship not yet implemented")), nil
+}
+
+// RemoveRelationshipByType removes a relationship by type and target
+func (ac *AssetsClient) RemoveRelationshipByType(ctx context.Context, objectID, relationshipType, targetID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Note: This is a placeholder implementation as the exact API endpoint
+	// for removing relationships by type may vary based on the Atlassian Assets API
+	return NewErrorResponse(fmt.Errorf("remove relationship by type not yet implemented")), nil
+}
+
+// RemoveProperty removes a property from an object
+func (ac *AssetsClient) RemoveProperty(ctx context.Context, objectID, propertyID string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Note: This is a placeholder implementation as removing properties
+	// typically involves updating the object with null values for the property
+	return NewErrorResponse(fmt.Errorf("remove property not yet implemented")), nil
+}
+
+// RemovePropertyByName removes a property by name from an object
+func (ac *AssetsClient) RemovePropertyByName(ctx context.Context, objectID, propertyName string) (*Response, error) {
+	if ac.workspaceID == "" {
+		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
+	}
+
+	// Note: This is a placeholder implementation as removing properties by name
+	// typically involves updating the object with null values for the property
+	return NewErrorResponse(fmt.Errorf("remove property by name not yet implemented")), nil
 }

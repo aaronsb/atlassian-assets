@@ -144,41 +144,7 @@ func runUpdateCmd(cmd *cobra.Command, args []string) error {
 	return outputResult(response)
 }
 
-// DELETE command
-var deleteCmd = &cobra.Command{
-	Use:   "delete",
-	Short: "Delete an asset object",
-	Long: `Delete an asset object by its ID.
-	
-This operation cannot be undone.`,
-	Example: `  # Delete asset
-  assets delete --id OBJ-123`,
-	RunE: runDeleteCmd,
-}
-
-var deleteID string
-
-func init() {
-	deleteCmd.Flags().StringVar(&deleteID, "id", "", "Object ID (required)")
-	deleteCmd.MarkFlagRequired("id")
-}
-
-func runDeleteCmd(cmd *cobra.Command, args []string) error {
-	client, err := getClient()
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-	defer client.Close()
-
-	response := NewSuccessResponse(map[string]interface{}{
-		"action": "delete",
-		"id":     deleteID,
-		"status": "not_implemented",
-		"message": "Asset deletion will be implemented using go-atlassian SDK",
-	})
-
-	return outputResult(response)
-}
+// DELETE command is now implemented in delete.go
 
 // SEARCH command
 var searchCmd = &cobra.Command{

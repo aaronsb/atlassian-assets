@@ -261,6 +261,8 @@ func TestHelp(t *testing.T) {
 		{"schema help", []string{"schema", "--help"}, "Manage asset schemas"},
 		{"list help", []string{"list", "--help"}, "List asset objects"},
 		{"create help", []string{"create", "--help"}, "Create assets"},
+		{"delete help", []string{"delete", "--help"}, "Delete assets"},
+		{"remove help", []string{"remove", "--help"}, "Remove attributes"},
 		{"workflows help", []string{"workflows", "--help"}, "Explore available workflows"},
 	}
 	
@@ -695,4 +697,222 @@ func BenchmarkOperations(b *testing.B) {
 			}
 		})
 	}
+}
+
+// TestDeleteOperations tests delete operations with safety checks
+func TestDeleteOperations(t *testing.T) {
+	t.Run("delete without permission", func(t *testing.T) {
+		// Should fail when ATLASSIAN_ASSETS_ALLOW_DELETE is not set
+		output, err := testEnv.execCommand("delete", "object-type", "--id", "123", "--confirm")
+		if err == nil {
+			t.Error("Expected error for delete without permission")
+		}
+		
+		// Should contain message about environment variable
+		assertContains(t, output, "ATLASSIAN_ASSETS_ALLOW_DELETE")
+		
+		rateLimit()
+	})
+	
+	t.Run("delete help structure", func(t *testing.T) {
+		output, err := testEnv.execCommand("delete", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from delete help: %v", err)
+		}
+		
+		// Should contain subcommands
+		assertContains(t, output, "object-type")
+		assertContains(t, output, "instance")
+		assertContains(t, output, "permanent deletion")
+		
+		rateLimit()
+	})
+	
+	t.Run("delete object-type help", func(t *testing.T) {
+		output, err := testEnv.execCommand("delete", "object-type", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from delete object-type help: %v", err)
+		}
+		
+		// Should contain safety warnings
+		assertContains(t, output, "WARNING")
+		assertContains(t, output, "cannot be undone")
+		
+		rateLimit()
+	})
+	
+	t.Run("delete instance help", func(t *testing.T) {
+		output, err := testEnv.execCommand("delete", "instance", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from delete instance help: %v", err)
+		}
+		
+		// Should contain multiple deletion options
+		assertContains(t, output, "comma-separated")
+		assertContains(t, output, "AQL query")
+		
+		rateLimit()
+	})
+}
+
+// TestRemoveOperations tests remove operations
+func TestRemoveOperations(t *testing.T) {
+	t.Run("remove help structure", func(t *testing.T) {
+		output, err := testEnv.execCommand("remove", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from remove help: %v", err)
+		}
+		
+		// Should contain subcommands
+		assertContains(t, output, "attribute")
+		assertContains(t, output, "relationship")
+		assertContains(t, output, "property")
+		assertContains(t, output, "modifies existing entities")
+		
+		rateLimit()
+	})
+	
+	t.Run("remove attribute help", func(t *testing.T) {
+		output, err := testEnv.execCommand("remove", "attribute", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from remove attribute help: %v", err)
+		}
+		
+		// Should contain required flags
+		assertContains(t, output, "type-id")
+		assertContains(t, output, "attribute-id")
+		assertContains(t, output, "attribute-name")
+		
+		rateLimit()
+	})
+	
+	t.Run("remove relationship help", func(t *testing.T) {
+		output, err := testEnv.execCommand("remove", "relationship", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from remove relationship help: %v", err)
+		}
+		
+		// Should contain relationship options
+		assertContains(t, output, "object-id")
+		assertContains(t, output, "relationship-id")
+		assertContains(t, output, "relationship-type")
+		
+		rateLimit()
+	})
+	
+	t.Run("remove property help", func(t *testing.T) {
+		output, err := testEnv.execCommand("remove", "property", "--help")
+		if err != nil && len(output) == 0 {
+			t.Fatalf("No output from remove property help: %v", err)
+		}
+		
+		// Should contain property options
+		assertContains(t, output, "property-name")
+		assertContains(t, output, "property-id")
+		assertContains(t, output, "comma-separated")
+		
+		rateLimit()
+	})
+	
+	t.Run("remove missing required flags", func(t *testing.T) {
+		// Should fail when required flags are missing
+		output, err := testEnv.execCommand("remove", "attribute", "--confirm")
+		if err == nil {
+			t.Error("Expected error for missing required flags")
+		}
+		
+		// Should show usage information
+		assertContains(t, output, "type-id")
+		
+		rateLimit()
+	})
+}
+
+// TestDeleteRemoveContextualHints tests contextual hints for delete/remove operations
+func TestDeleteRemoveContextualHints(t *testing.T) {
+	t.Run("delete hints in workflows", func(t *testing.T) {
+		output, err := testEnv.execCommand("workflows", "simulate", "--context", "delete_object_type", "--variables", `{"success":true,"object_type_id":"123","force":false}`)
+		result := assertSuccess(t, output, err)
+		
+		// Check for contextual hints related to deletion
+		data := result["data"].(map[string]interface{})
+		if hints, ok := data["hints"]; ok {
+			hintsArray := hints.([]interface{})
+			if len(hintsArray) == 0 {
+				t.Error("Expected contextual hints for delete operation")
+			}
+			
+			// Should contain warning about cascading deletion
+			hintsStr := fmt.Sprintf("%v", hintsArray)
+			if !strings.Contains(hintsStr, "Warning") {
+				t.Log("Expected warning hints for delete operation")
+			}
+		}
+		
+		rateLimit()
+	})
+	
+	t.Run("remove hints in workflows", func(t *testing.T) {
+		output, err := testEnv.execCommand("workflows", "simulate", "--context", "remove_attribute", "--variables", `{"success":true,"type_id":"123","attribute_id":"456"}`)
+		result := assertSuccess(t, output, err)
+		
+		// Check for contextual hints related to removal
+		data := result["data"].(map[string]interface{})
+		if hints, ok := data["hints"]; ok {
+			hintsArray := hints.([]interface{})
+			if len(hintsArray) == 0 {
+				t.Error("Expected contextual hints for remove operation")
+			}
+			
+			// Should contain guidance about validation
+			hintsStr := fmt.Sprintf("%v", hintsArray)
+			if !strings.Contains(hintsStr, "Validate") {
+				t.Log("Expected validation hints for remove operation")
+			}
+		}
+		
+		rateLimit()
+	})
+}
+
+// TestDeleteRemoveErrorHandling tests error handling for delete/remove operations
+func TestDeleteRemoveErrorHandling(t *testing.T) {
+	t.Run("delete missing confirmation", func(t *testing.T) {
+		// Should fail without confirmation flags
+		output, err := testEnv.execCommand("delete", "object-type", "--id", "123")
+		if err == nil {
+			t.Error("Expected error for missing confirmation")
+		}
+		
+		// Should mention confirmation requirement
+		assertContains(t, output, "confirm")
+		
+		rateLimit()
+	})
+	
+	t.Run("remove missing confirmation", func(t *testing.T) {
+		// Should fail without confirmation flags  
+		output, err := testEnv.execCommand("remove", "attribute", "--type-id", "123", "--attribute-id", "456")
+		if err == nil {
+			t.Error("Expected error for missing confirmation")
+		}
+		
+		// Should mention confirmation requirement
+		assertContains(t, output, "confirm")
+		
+		rateLimit()
+	})
+	
+	t.Run("invalid delete parameters", func(t *testing.T) {
+		// Should fail with invalid parameters
+		output, err := testEnv.execCommand("delete", "object-type", "--confirm")
+		if err == nil {
+			t.Error("Expected error for missing object type ID")
+		}
+		
+		// Should mention required parameters
+		assertContains(t, output, "id")
+		
+		rateLimit()
+	})
 }
