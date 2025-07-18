@@ -280,6 +280,11 @@ func (ac *AssetsClient) GetObjectTypes(ctx context.Context, schemaID string) (*R
 
 // ListObjects lists objects in a specific schema using structured search
 func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit int) (*Response, error) {
+	return ac.ListObjectsWithPagination(ctx, schemaID, limit, 0)
+}
+
+// ListObjectsWithPagination lists objects in a specific schema with pagination support
+func (ac *AssetsClient) ListObjectsWithPagination(ctx context.Context, schemaID string, limit int, offset int) (*Response, error) {
 	if ac.workspaceID == "" {
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
@@ -287,10 +292,10 @@ func (ac *AssetsClient) ListObjects(ctx context.Context, schemaID string, limit 
 	// Use AQL query to get all objects in schema - now using direct HTTP call
 	query := fmt.Sprintf("objectSchemaId = %s", schemaID)
 	
-	fmt.Printf("DEBUG: ListObjects using direct HTTP call - workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
+	fmt.Printf("DEBUG: ListObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d\n", ac.workspaceID, query, limit, offset)
 	
 	// Use direct HTTP call to bypass broken SDK
-	objects, err := ac.searchObjectsDirect(ctx, query, limit)
+	objects, err := ac.searchObjectsDirectWithPagination(ctx, query, limit, offset)
 	if err != nil {
 		return NewErrorResponse(fmt.Errorf("failed to list objects: %w", err)), nil
 	}
@@ -351,14 +356,19 @@ func (ac *AssetsClient) GetObjectTypeAttributes(ctx context.Context, objectTypeI
 
 // SearchObjects searches for objects using AQL with human-readable results
 func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit int) (*Response, error) {
+	return ac.SearchObjectsWithPagination(ctx, query, limit, 0)
+}
+
+// SearchObjectsWithPagination searches for objects using AQL with pagination support
+func (ac *AssetsClient) SearchObjectsWithPagination(ctx context.Context, query string, limit int, offset int) (*Response, error) {
 	if ac.workspaceID == "" {
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
-	fmt.Printf("DEBUG: SearchObjects using direct HTTP call - workspaceID=%s, query=%s, limit=%d\n", ac.workspaceID, query, limit)
+	fmt.Printf("DEBUG: SearchObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d\n", ac.workspaceID, query, limit, offset)
 	
 	// Use direct HTTP call to bypass broken SDK
-	objects, err := ac.searchObjectsDirect(ctx, query, limit)
+	objects, err := ac.searchObjectsDirectWithPagination(ctx, query, limit, offset)
 	if err != nil {
 		return NewErrorResponse(fmt.Errorf("failed to search objects: %w", err)), nil
 	}
@@ -373,16 +383,18 @@ func (ac *AssetsClient) SearchObjects(ctx context.Context, query string, limit i
 
 // searchObjectsDirect bypasses the broken SDK and makes direct HTTP calls
 func (ac *AssetsClient) searchObjectsDirect(ctx context.Context, aqlQuery string, maxResults int) (*models.ObjectListResultScheme, error) {
-	// Build endpoint URL using API gateway (same as SDK)
-	endpoint := fmt.Sprintf("https://api.atlassian.com/jsm/assets/workspace/%s/v1/object/aql", 
-		ac.workspaceID)
+	return ac.searchObjectsDirectWithPagination(ctx, aqlQuery, maxResults, 0)
+}
+
+// searchObjectsDirectWithPagination bypasses the broken SDK with pagination support
+func (ac *AssetsClient) searchObjectsDirectWithPagination(ctx context.Context, aqlQuery string, maxResults int, startAt int) (*models.ObjectListResultScheme, error) {
+	// Build endpoint URL with pagination parameters in URL (not payload)
+	endpoint := fmt.Sprintf("https://api.atlassian.com/jsm/assets/workspace/%s/v1/object/aql?startAt=%d&maxResults=%d&includeAttributes=true", 
+		ac.workspaceID, startAt, maxResults)
 	
-	// Create request payload with all parameters
+	// Create request payload with only the query (pagination is in URL)
 	payload := map[string]interface{}{
-		"qlQuery":           aqlQuery,
-		"startAt":           0,
-		"maxResults":        maxResults,
-		"includeAttributes": true,
+		"qlQuery": aqlQuery,
 	}
 	
 	payloadBytes, err := json.Marshal(payload)
@@ -427,6 +439,10 @@ func (ac *AssetsClient) searchObjectsDirect(ctx context.Context, aqlQuery string
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
+	
+	// Debug pagination info
+	fmt.Printf("DEBUG: API Response - Total: %d, MaxResults: %d, StartAt: %d, IsLast: %t\n", 
+		result.Total, result.MaxResults, result.StartAt, result.IsLast)
 	
 	return &result, nil
 }

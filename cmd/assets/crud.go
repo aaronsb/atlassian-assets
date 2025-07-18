@@ -33,12 +33,16 @@ var (
 	listSchema string
 	listType   string
 	listFilter string
+	listLimit  int
+	listOffset int
 )
 
 func init() {
 	listCmd.Flags().StringVar(&listSchema, "schema", "", "Schema ID or name (required)")
 	listCmd.Flags().StringVar(&listType, "type", "", "Object type filter")
 	listCmd.Flags().StringVar(&listFilter, "filter", "", "AQL filter query")
+	listCmd.Flags().IntVar(&listLimit, "limit", 50, "Maximum number of results to return (1-1000)")
+	listCmd.Flags().IntVar(&listOffset, "offset", 0, "Number of results to skip (for pagination)")
 	
 	listCmd.MarkFlagRequired("schema")
 }
@@ -52,10 +56,8 @@ func runListCmd(cmd *cobra.Command, args []string) error {
 
 	ctx := context.Background()
 	
-	// Default limit
-	limit := 50
-	
-	response, err := client.ListObjects(ctx, listSchema, limit)
+	// Use ListObjectsWithPagination if available, otherwise fallback to ListObjects
+	response, err := client.ListObjectsWithPagination(ctx, listSchema, listLimit, listOffset)
 	if err != nil {
 		return fmt.Errorf("failed to list objects: %w", err)
 	}
@@ -176,7 +178,11 @@ due to AQL LIKE query limitations in the current environment.`,
   
   # Advanced AQL searches
   assets search --query "Name like \"MacBook%\" AND Owner = \"john.doe\""
-  assets search --query "objectSchemaId = 3 AND Status = \"Active\""`,
+  assets search --query "objectSchemaId = 3 AND Status = \"Active\""
+  
+  # Pagination examples
+  assets search --simple "*" --schema 7 --limit 100        # Get first 100 results
+  assets search --simple "*" --schema 7 --limit 50 --offset 50  # Get next 50 results`,
 	RunE: runSearchCmd,
 }
 
@@ -187,6 +193,8 @@ var (
 	searchType   string
 	searchStatus string
 	searchOwner  string
+	searchLimit  int
+	searchOffset int
 )
 
 func init() {
@@ -196,6 +204,8 @@ func init() {
 	searchCmd.Flags().StringVar(&searchType, "type", "", "Limit search to specific object type")
 	searchCmd.Flags().StringVar(&searchStatus, "status", "", "Filter by status (Active, Inactive, etc.)")
 	searchCmd.Flags().StringVar(&searchOwner, "owner", "", "Filter by owner/assignee")
+	searchCmd.Flags().IntVar(&searchLimit, "limit", 50, "Maximum number of results to return (1-1000)")
+	searchCmd.Flags().IntVar(&searchOffset, "offset", 0, "Number of results to skip (for pagination)")
 	
 	// Make search mutually exclusive - either query OR simple + optional filters
 	searchCmd.MarkFlagsMutuallyExclusive("query", "simple")
@@ -214,7 +224,14 @@ func runSearchCmd(cmd *cobra.Command, args []string) error {
 	defer client.Close()
 
 	ctx := context.Background()
-	limit := 50
+	
+	// Validate pagination parameters
+	if searchLimit < 1 || searchLimit > 1000 {
+		return fmt.Errorf("limit must be between 1 and 1000, got %d", searchLimit)
+	}
+	if searchOffset < 0 {
+		return fmt.Errorf("offset must be 0 or greater, got %d", searchOffset)
+	}
 	
 	// Build AQL query based on input type
 	var finalQuery string
@@ -233,7 +250,7 @@ func runSearchCmd(cmd *cobra.Command, args []string) error {
 		queryType = "simple"
 	}
 	
-	response, err := client.SearchObjects(ctx, finalQuery, limit)
+	response, err := client.SearchObjectsWithPagination(ctx, finalQuery, searchLimit, searchOffset)
 	if err != nil {
 		return fmt.Errorf("failed to search objects: %w", err)
 	}

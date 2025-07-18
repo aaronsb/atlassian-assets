@@ -8,12 +8,16 @@ This project provides CRUD operations for Atlassian Assets through a clean CLI i
 
 ## Features
 
-- **Complete CRUD Operations**: Create, read, update, and delete assets
-- **Dual Search Modes**: Simple exact-match search and advanced AQL query search
-- **Schema Management**: List schemas, get schema details, and explore object types
-- **Configuration Management**: Profile-based configuration with environment variable support
-- **Multiple Output Formats**: JSON, YAML, and table output
-- **MCP-Ready Design**: CLI commands map directly to future MCP tools
+- **✅ Complete CRUD Operations**: Create, read, update, and delete assets with intelligent workflows
+- **✅ Dual Search System**: Simple exact-match search and advanced AQL query search with full pagination  
+- **✅ Schema Management**: List schemas, get schema details, and explore object types
+- **✅ Advanced Workflows**: 24+ specialized commands for asset management, discovery, and automation
+- **✅ Pagination Support**: Handle large datasets with `--limit` and `--offset` on search and list operations
+- **✅ SDK Bug Fixes**: Direct HTTP implementation bypassing broken go-atlassian SDK methods
+- **✅ Contextual Hints**: Intelligent guidance system for streamlined workflows
+- **✅ Version Management**: Proper semantic versioning with build-time injection
+- **✅ Multiple Output Formats**: JSON, YAML, and table output
+- **✅ MCP-Ready Design**: CLI commands map directly to future MCP tools
 
 ## Quick Start
 
@@ -57,52 +61,82 @@ ATLASSIAN_API_TOKEN=your-api-token
 ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 ```
 
-## Usage
+## Complete Command Reference
 
-### Basic Commands
+### 🔧 Core CRUD Operations
 
 ```bash
-# Show help
-./bin/assets --help
+# Create assets with intelligent workflow
+./bin/assets create --schema computers --type laptop --guided
 
-# Show current configuration
-./bin/assets config show
+# List assets with pagination
+./bin/assets list --schema computers --limit 100 --offset 0
 
-# Test connection
-./bin/assets config test
-
-# List assets in a schema
-./bin/assets list --schema computers
-
-# Create a new asset
-./bin/assets create --schema computers --type laptop --data '{"name":"MacBook Pro","owner":"john.doe"}'
-
-# Get asset details
+# Get specific asset details  
 ./bin/assets get --id OBJ-123
 
-# Update an asset
+# Update asset properties
 ./bin/assets update --id OBJ-123 --data '{"owner":"jane.doe"}'
 
-# Delete an asset
+# Delete assets (with safety controls)
 ./bin/assets delete --id OBJ-123
-
-# Search assets with dual search modes
-./bin/assets search --simple "Blue Barn #2"                # Simple exact match
-./bin/assets search --simple "*" --schema 3                # All objects in schema
-./bin/assets search --query "Name = \"Blue Barn #2\""       # Advanced AQL search
+./bin/assets remove --attribute "old-field" --from OBJ-123
 ```
 
-### Schema Management
+### 🔍 Advanced Search & Discovery
 
 ```bash
-# List all schemas
+# Simple search with pagination
+./bin/assets search --simple "MacBook Pro M3" --schema 8
+./bin/assets search --simple "*" --schema 8 --limit 50 --offset 50
+
+# Advanced AQL search
+./bin/assets search --query "Name = \"MacBook Pro\" AND Status = \"Active\""
+
+# Browse and explore  
+./bin/assets browse --schema computers
+./bin/assets catalog --global-objects
+./bin/assets trace --object OBJ-123 --depth 2
+```
+
+### 📊 Schema & Metadata Management
+
+```bash
+# Schema operations
 ./bin/assets schema list
-
-# Get schema details
-./bin/assets schema get --id computers
-
-# List object types in schema
+./bin/assets schema get --id computers  
 ./bin/assets schema types --schema computers
+
+# Attribute management
+./bin/assets attributes --schema computers
+./bin/assets copy-attributes --from laptop --to workstation
+./bin/assets extract --schema computers --format csv
+```
+
+### 🤖 Intelligent Workflows
+
+```bash
+# Smart completion and validation
+./bin/assets complete --schema computers --type laptop
+./bin/assets validate --id OBJ-123 --strict
+
+# Bulk operations and automation
+./bin/assets apply --attribute "Status:Active" --to-schema computers
+./bin/assets workflows --list
+./bin/assets summary --schema computers --analytics
+```
+
+### ⚙️ System & Configuration
+
+```bash
+# Configuration management
+./bin/assets config show
+./bin/assets config test
+./bin/assets version --output json
+
+# Environment testing
+./bin/assets test --connection
+./bin/assets resolve --name "MacBook Pro" --to-id
 ```
 
 ## Architecture
@@ -133,17 +167,23 @@ The CLI is designed for natural translation to MCP tools:
 
 ## Development Status
 
-- ✅ CLI Framework (Cobra)
-- ✅ Configuration Management
-- ✅ go-atlassian SDK Integration
-- ✅ Command Structure Design
-- ✅ Complete CRUD Operations (Create, List, Get, Update, Delete, Search)
-- ✅ Schema Management and Object Type Operations  
-- ✅ Delete/Remove Operations with Safety Controls
-- ✅ Contextual Hints System for Guided Workflows
-- ✅ **SDK Bug Fix**: Direct HTTP implementation for search/list operations
-- ✅ Live Environment Testing (24 CLI commands)
-- ⏳ MCP Interface Layer
+### ✅ Production Ready Features (v0.1.0)
+
+- **Complete CLI Framework**: 24+ specialized commands with Cobra
+- **Advanced Search & Pagination**: Dual search modes with full pagination support
+- **Intelligent Workflows**: Contextual hints and guided asset management
+- **SDK Bug Fixes**: Direct HTTP implementation bypassing broken go-atlassian methods
+- **Comprehensive CRUD**: Create, Read, Update, Delete with safety controls
+- **Schema Management**: Full schema and object type operations
+- **Version Management**: Semantic versioning with build-time injection
+- **Live Testing**: Validated against real Atlassian Assets environment
+- **Build Automation**: Simple and advanced build systems for all skill levels
+
+### 🚀 Next Phase (v0.2.0) 
+
+- **MCP Server Mode**: `--mcp-server` flag for stdio MCP protocol
+- **AI Agent Interface**: All CLI commands as MCP tools 
+- **Automated Workflows**: AI-driven asset management and discovery
 
 ## Important Notes
 
