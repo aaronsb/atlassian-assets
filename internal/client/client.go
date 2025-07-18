@@ -11,6 +11,7 @@ import (
 	"github.com/ctreminiom/go-atlassian/v2/assets"
 	"github.com/ctreminiom/go-atlassian/v2/pkg/infra/models"
 	"github.com/aaronsb/atlassian-assets/internal/config"
+	"github.com/aaronsb/atlassian-assets/internal/logger"
 )
 
 // AssetsClient wraps the go-atlassian client with our configuration
@@ -292,7 +293,7 @@ func (ac *AssetsClient) ListObjectsWithPagination(ctx context.Context, schemaID 
 	// Use AQL query to get all objects in schema - now using direct HTTP call
 	query := fmt.Sprintf("objectSchemaId = %s", schemaID)
 	
-	fmt.Printf("DEBUG: ListObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d\n", ac.workspaceID, query, limit, offset)
+	logger.Debug("ListObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d", ac.workspaceID, query, limit, offset)
 	
 	// Use direct HTTP call to bypass broken SDK
 	objects, err := ac.searchObjectsDirectWithPagination(ctx, query, limit, offset)
@@ -300,7 +301,7 @@ func (ac *AssetsClient) ListObjectsWithPagination(ctx context.Context, schemaID 
 		return NewErrorResponse(fmt.Errorf("failed to list objects: %w", err)), nil
 	}
 
-	fmt.Printf("DEBUG: ListObjects direct HTTP call successful - found %d objects\n", objects.Total)
+	logger.Debug("ListObjects direct HTTP call successful - found %d objects", objects.Total)
 	return NewSuccessResponse(map[string]interface{}{
 		"objects": objects.Values,
 		"total":   objects.Total,
@@ -365,7 +366,7 @@ func (ac *AssetsClient) SearchObjectsWithPagination(ctx context.Context, query s
 		return NewErrorResponse(fmt.Errorf("workspace ID not set")), nil
 	}
 
-	fmt.Printf("DEBUG: SearchObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d\n", ac.workspaceID, query, limit, offset)
+	logger.Debug("SearchObjectsWithPagination using direct HTTP call - workspaceID=%s, query=%s, limit=%d, offset=%d", ac.workspaceID, query, limit, offset)
 	
 	// Use direct HTTP call to bypass broken SDK
 	objects, err := ac.searchObjectsDirectWithPagination(ctx, query, limit, offset)
@@ -373,7 +374,7 @@ func (ac *AssetsClient) SearchObjectsWithPagination(ctx context.Context, query s
 		return NewErrorResponse(fmt.Errorf("failed to search objects: %w", err)), nil
 	}
 
-	fmt.Printf("DEBUG: SearchObjects direct HTTP call successful - found %d objects\n", objects.Total)
+	logger.Debug("SearchObjects direct HTTP call successful - found %d objects", objects.Total)
 	return NewSuccessResponse(map[string]interface{}{
 		"objects": objects.Values,
 		"total":   objects.Total,
@@ -416,8 +417,8 @@ func (ac *AssetsClient) searchObjectsDirectWithPagination(ctx context.Context, a
 	auth := base64.StdEncoding.EncodeToString([]byte(ac.config.GetUsername() + ":" + ac.config.GetPassword()))
 	req.Header.Set("Authorization", "Basic " + auth)
 	
-	fmt.Printf("DEBUG: Direct HTTP POST to %s\n", endpoint)
-	fmt.Printf("DEBUG: Payload: %s\n", string(payloadBytes))
+	logger.Debug("Direct HTTP POST to %s", endpoint)
+	logger.Debug("Payload: %s", string(payloadBytes))
 	
 	// Make the request
 	resp, err := ac.httpClient.Do(req)
@@ -426,7 +427,7 @@ func (ac *AssetsClient) searchObjectsDirectWithPagination(ctx context.Context, a
 	}
 	defer resp.Body.Close()
 	
-	fmt.Printf("DEBUG: Direct HTTP response status: %d\n", resp.StatusCode)
+	logger.Debug("Direct HTTP response status: %d", resp.StatusCode)
 	
 	if resp.StatusCode != 200 {
 		var errorBody bytes.Buffer
@@ -441,7 +442,7 @@ func (ac *AssetsClient) searchObjectsDirectWithPagination(ctx context.Context, a
 	}
 	
 	// Debug pagination info
-	fmt.Printf("DEBUG: API Response - Total: %d, MaxResults: %d, StartAt: %d, IsLast: %t\n", 
+	logger.Debug("API Response - Total: %d, MaxResults: %d, StartAt: %d, IsLast: %t", 
 		result.Total, result.MaxResults, result.StartAt, result.IsLast)
 	
 	return &result, nil
@@ -555,12 +556,12 @@ func (ac *AssetsClient) CreateObject(ctx context.Context, objectTypeID string, a
 	}
 
 	// Debug output
-	fmt.Printf("DEBUG: Creating object with payload: ObjectTypeID=%s, AttributeCount=%d\n", objectTypeID, len(objectAttributes))
-	fmt.Printf("DEBUG: NameToID mapping: %+v\n", nameToID)
+	logger.Debug("Creating object with payload: ObjectTypeID=%s, AttributeCount=%d", objectTypeID, len(objectAttributes))
+	logger.Debug("NameToID mapping: %+v", nameToID)
 	for i, attr := range objectAttributes {
-		fmt.Printf("DEBUG: Attribute[%d]: ID=%s, ValueCount=%d\n", i, attr.ObjectTypeAttributeID, len(attr.ObjectAttributeValues))
+		logger.Debug("Attribute[%d]: ID=%s, ValueCount=%d", i, attr.ObjectTypeAttributeID, len(attr.ObjectAttributeValues))
 		if len(attr.ObjectAttributeValues) > 0 {
-			fmt.Printf("DEBUG: FirstValue=%s\n", attr.ObjectAttributeValues[0].Value)
+			logger.Debug("FirstValue=%s", attr.ObjectAttributeValues[0].Value)
 		}
 	}
 

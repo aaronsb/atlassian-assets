@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/aaronsb/atlassian-assets/internal/logger"
 )
 
 // PersistentCacheEntry represents a cached resolver entry with metadata
@@ -152,7 +154,7 @@ func (dc *DiskCache) ListCachedWorkspaces() ([]*CacheInfo, error) {
 			info, err := dc.getCacheInfo(filepath.Join(dc.cacheDir, file.Name()))
 			if err != nil {
 				// Log error but continue with other files
-				fmt.Printf("Warning: failed to read cache info for %s: %v\n", file.Name(), err)
+				logger.Warning("failed to read cache info for %s: %v", file.Name(), err)
 				continue
 			}
 			cacheInfos = append(cacheInfos, info)
@@ -217,7 +219,7 @@ func (dc *DiskCache) ClearExpiredCache() error {
 		if info.IsExpired {
 			filePath := filepath.Join(dc.cacheDir, info.FileName)
 			if err := os.Remove(filePath); err != nil {
-				fmt.Printf("Warning: failed to remove expired cache file %s: %v\n", info.FileName, err)
+				logger.Warning("failed to remove expired cache file %s: %v", info.FileName, err)
 			} else {
 				removedCount++
 			}
@@ -225,7 +227,7 @@ func (dc *DiskCache) ClearExpiredCache() error {
 	}
 
 	if removedCount > 0 {
-		fmt.Printf("Removed %d expired cache files\n", removedCount)
+		logger.Info("Removed %d expired cache files", removedCount)
 	}
 
 	return nil

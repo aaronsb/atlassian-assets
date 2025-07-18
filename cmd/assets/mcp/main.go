@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -15,6 +14,7 @@ import (
 	"github.com/aaronsb/atlassian-assets/internal/client"
 	"github.com/aaronsb/atlassian-assets/internal/config"
 	"github.com/aaronsb/atlassian-assets/internal/hints"
+	"github.com/aaronsb/atlassian-assets/internal/logger"
 	"github.com/aaronsb/atlassian-assets/internal/version"
 )
 
@@ -707,16 +707,19 @@ func formatResponse(response *ResponseWithHints) string {
 
 // Main function
 func main() {
+	// Setup logger for MCP server (stderr only)
+	logger.SetupStandardLogger()
+
 	// Initialize server
 	mcpServer, err := NewMCPServer()
 	if err != nil {
-		log.Fatalf("Failed to initialize MCP server: %v", err)
+		logger.Fatal("Failed to initialize MCP server: %v", err)
 	}
 	defer assetsClient.Close()
 
 	// Start the MCP server using the SDK with stdio transport
 	transport := mcp.NewStdioTransport()
 	if err := mcpServer.Run(context.Background(), transport); err != nil {
-		log.Fatalf("MCP server failed: %v", err)
+		logger.Fatal("MCP server failed: %v", err)
 	}
 }
