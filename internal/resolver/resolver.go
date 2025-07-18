@@ -10,6 +10,7 @@ import (
 
 	"github.com/ctreminiom/go-atlassian/v2/pkg/infra/models"
 	"github.com/aaronsb/atlassian-assets/internal/client"
+	"github.com/aaronsb/atlassian-assets/internal/logger"
 )
 
 // IDType represents the type of entity being resolved
@@ -170,21 +171,21 @@ func (r *Resolver) loadSchemas(ctx context.Context) error {
 // loadObjectTypes loads object types for all schemas
 func (r *Resolver) loadObjectTypes(ctx context.Context) error {
 	schemaCount := len(r.cache.schemas)
-	fmt.Printf("Loading object types for %d schemas...\n", schemaCount)
+	logger.Info("Loading object types for %d schemas...", schemaCount)
 	
 	processed := 0
 	for schemaID := range r.cache.schemas {
 		processed++
-		fmt.Printf("Loading schema %d/%d (ID: %s)...\n", processed, schemaCount, schemaID)
+		logger.Info("Loading schema %d/%d (ID: %s)...", processed, schemaCount, schemaID)
 		
 		if err := r.loadObjectTypesForSchema(ctx, schemaID); err != nil {
 			// Log error but continue with other schemas
-			fmt.Printf("ERROR: failed to load object types for schema %s: %v\n", schemaID, err)
+			logger.Error("failed to load object types for schema %s: %v", schemaID, err)
 		} else {
-			fmt.Printf("SUCCESS: loaded object types for schema %s\n", schemaID)
+			logger.Info("SUCCESS: loaded object types for schema %s", schemaID)
 		}
 	}
-	fmt.Printf("Finished loading object types for all schemas\n")
+	logger.Info("Finished loading object types for all schemas")
 	return nil
 }
 
@@ -555,7 +556,7 @@ func (r *Resolver) saveToDiskCache() {
 	siteURL := r.client.GetConfig().GetBaseURL()
 
 	if err := r.diskCache.SaveCache(workspaceID, siteURL, r.cache); err != nil {
-		fmt.Printf("Warning: failed to save cache to disk: %v\n", err)
+		logger.Warning("failed to save cache to disk: %v", err)
 	}
 }
 

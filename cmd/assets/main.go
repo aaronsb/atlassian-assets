@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/aaronsb/atlassian-assets/internal/config"
 	"github.com/aaronsb/atlassian-assets/internal/client"
+	"github.com/aaronsb/atlassian-assets/internal/logger"
 	"github.com/aaronsb/atlassian-assets/internal/version"
 )
 
@@ -163,5 +164,8 @@ func outputTable(data interface{}) error {
 }
 
 func main() {
+	// Setup logger for CLI (stderr only for internal logging)
+	logger.SetupStandardLogger()
+	
 	Execute()
 }
