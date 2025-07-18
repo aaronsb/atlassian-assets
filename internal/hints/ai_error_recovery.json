@@ -1,0 +1,180 @@
+{
+  "version": "1.0.0",
+  "description": "AI agent error recovery and remediation strategies",
+  "ai_error_recovery": {
+    "parameter_validation_failures": {
+      "missing_schema": {
+        "error_pattern": "schema parameter required",
+        "recovery_actions": [
+          {
+            "tool": "assets_list_schemas",
+            "reason": "Discover available schemas to choose from",
+            "parameters": {},
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Schema parameter is required for scoping operations to prevent workspace-wide queries",
+        "prevention_tip": "Always include schema parameter when working with assets"
+      },
+      "invalid_object_id": {
+        "error_pattern": "object not found|invalid object ID",
+        "recovery_actions": [
+          {
+            "tool": "assets_search",
+            "reason": "Find assets with similar names to locate correct ID",
+            "parameters": {
+              "simple": "{user_search_term}",
+              "schema": "{last_known_schema}"
+            },
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Asset object IDs must be exact (like OBJ-123) - names are not valid IDs",
+        "prevention_tip": "Use assets_search to find exact object IDs before using assets_get"
+      },
+      "invalid_schema_id": {
+        "error_pattern": "schema not found|invalid schema",
+        "recovery_actions": [
+          {
+            "tool": "assets_list_schemas",
+            "reason": "List available schemas to find correct ID or name",
+            "parameters": {},
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Schema must exist and be accessible to the current user",
+        "prevention_tip": "Verify schema exists with assets_list_schemas before using in operations"
+      },
+      "malformed_json_data": {
+        "error_pattern": "invalid JSON|failed to parse JSON",
+        "recovery_actions": [
+          {
+            "tool": "assets_complete_object",
+            "reason": "Use intelligent completion to generate valid JSON structure",
+            "parameters": {
+              "type": "{target_object_type}",
+              "data": "{simplified_data}"
+            },
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Asset data must be valid JSON with proper field names and types",
+        "prevention_tip": "Use assets_complete_object for guided data structure creation"
+      }
+    },
+    "operation_failures": {
+      "permission_denied": {
+        "error_pattern": "permission denied|access denied|unauthorized",
+        "recovery_actions": [
+          {
+            "tool": "assets_get_current_user_permissions",
+            "reason": "Check current user's workspace permissions",
+            "parameters": {},
+            "confidence": "medium"
+          }
+        ],
+        "explanation": "User lacks necessary permissions for the requested operation",
+        "prevention_tip": "Check permissions before attempting create/update/delete operations"
+      },
+      "rate_limited": {
+        "error_pattern": "rate limit exceeded|too many requests",
+        "recovery_actions": [
+          {
+            "tool": "assets_get_rate_limit_status",
+            "reason": "Check current rate limit status and recommended wait time",
+            "parameters": {},
+            "confidence": "high"
+          }
+        ],
+        "explanation": "API rate limits prevent excessive requests - wait before retrying",
+        "prevention_tip": "Use pagination and reasonable limits to avoid rate limiting"
+      },
+      "workspace_not_found": {
+        "error_pattern": "workspace not found|invalid workspace",
+        "recovery_actions": [
+          {
+            "tool": "assets_list_workspaces",
+            "reason": "Discover available workspaces for current user",
+            "parameters": {},
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Workspace ID is invalid or user doesn't have access",
+        "prevention_tip": "Verify workspace access during initial setup"
+      },
+      "object_type_not_found": {
+        "error_pattern": "object type not found|invalid object type",
+        "recovery_actions": [
+          {
+            "tool": "assets_browse_schema",
+            "reason": "Find available object types in the target schema",
+            "parameters": {
+              "schema_id": "{target_schema}"
+            },
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Object type ID is invalid or doesn't exist in the specified schema",
+        "prevention_tip": "Use assets_browse_schema to find valid object type IDs"
+      },
+      "attribute_validation_failed": {
+        "error_pattern": "attribute validation failed|invalid attribute",
+        "recovery_actions": [
+          {
+            "tool": "assets_get_object_type_attributes",
+            "reason": "Check required attributes and validation rules for object type",
+            "parameters": {
+              "object_type_id": "{target_object_type}"
+            },
+            "confidence": "high"
+          },
+          {
+            "tool": "assets_complete_object",
+            "reason": "Use intelligent completion to fix attribute issues",
+            "parameters": {
+              "type": "{target_object_type}",
+              "data": "{current_data}"
+            },
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Asset attributes don't meet object type requirements or validation rules",
+        "prevention_tip": "Use assets_complete_object or assets_validate before creation"
+      }
+    },
+    "workflow_failures": {
+      "incomplete_object_creation": {
+        "error_pattern": "missing required fields|incomplete object",
+        "recovery_actions": [
+          {
+            "tool": "assets_complete_object",
+            "reason": "Complete the object with intelligent defaults and validation",
+            "parameters": {
+              "type": "{target_object_type}",
+              "data": "{partial_data}"
+            },
+            "confidence": "high"
+          }
+        ],
+        "explanation": "Object creation requires all mandatory fields to be populated",
+        "prevention_tip": "Use assets_complete_object for guided creation workflow"
+      },
+      "relationship_creation_failed": {
+        "error_pattern": "relationship creation failed|invalid relationship",
+        "recovery_actions": [
+          {
+            "tool": "assets_trace_relationships",
+            "reason": "Understand existing relationships and constraints",
+            "parameters": {
+              "object_id": "{source_object_id}",
+              "depth": 1
+            },
+            "confidence": "medium"
+          }
+        ],
+        "explanation": "Relationship constraints or circular dependencies prevent creation",
+        "prevention_tip": "Use assets_trace_relationships to understand relationship constraints"
+      }
+    }
+  }
+}

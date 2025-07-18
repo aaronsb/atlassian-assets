@@ -1,0 +1,136 @@
+{
+  "version": "1.0.0",
+  "description": "AI agent workflow guidance for Atlassian Assets MCP server",
+  "ai_workflows": {
+    "object_creation": {
+      "description": "Create and configure a new object type with intelligent workflows",
+      "semantic_context": "object_type_creation",
+      "steps": [
+        {
+          "id": "create_object_type",
+          "tool_name": "assets_create_object_type",
+          "parameters": {
+            "schema": "{schema_id}",
+            "name": "{object_type_name}",
+            "description": "{optional_description}"
+          },
+          "success_indicators": ["object_type_created", "has_default_attributes"],
+          "next_actions": [
+            {
+              "tool": "assets_enhance_object_type",
+              "reason": "Add custom attributes for better data modeling",
+              "confidence": "high",
+              "parameters": {
+                "object_type_id": "{created_object_type_id}",
+                "action": "add_attributes"
+              }
+            },
+            {
+              "tool": "assets_get_object_type",
+              "reason": "Verify the created object type structure",
+              "confidence": "medium",
+              "parameters": {
+                "object_type_id": "{created_object_type_id}"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "asset_discovery": {
+      "description": "Discover and explore assets within a workspace",
+      "semantic_context": "asset_exploration",
+      "steps": [
+        {
+          "id": "explore_schemas",
+          "tool_name": "assets_list_schemas",
+          "parameters": {},
+          "success_indicators": ["schemas_available", "has_object_types"],
+          "next_actions": [
+            {
+              "tool": "assets_browse_schema",
+              "reason": "Explore object types within interesting schemas",
+              "confidence": "high",
+              "parameters": {
+                "schema_id": "{interesting_schema_id}"
+              }
+            }
+          ]
+        },
+        {
+          "id": "browse_schema_contents",
+          "tool_name": "assets_browse_schema",
+          "parameters": {
+            "schema_id": "{target_schema_id}"
+          },
+          "success_indicators": ["object_types_found", "has_instances"],
+          "next_actions": [
+            {
+              "tool": "assets_search",
+              "reason": "Find specific assets within the schema",
+              "confidence": "high",
+              "parameters": {
+                "simple": "*",
+                "schema": "{target_schema_id}",
+                "limit": 50
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "asset_management": {
+      "description": "Manage existing assets with updates and relationships",
+      "semantic_context": "asset_maintenance",
+      "steps": [
+        {
+          "id": "locate_asset",
+          "tool_name": "assets_search",
+          "parameters": {
+            "simple": "{asset_identifier}",
+            "schema": "{target_schema_id}"
+          },
+          "success_indicators": ["asset_found", "unique_result"],
+          "next_actions": [
+            {
+              "tool": "assets_get",
+              "reason": "Get complete asset details for analysis",
+              "confidence": "high",
+              "parameters": {
+                "id": "{found_asset_id}"
+              }
+            }
+          ]
+        },
+        {
+          "id": "analyze_asset",
+          "tool_name": "assets_get",
+          "parameters": {
+            "id": "{target_asset_id}"
+          },
+          "success_indicators": ["asset_details_retrieved", "has_attributes"],
+          "next_actions": [
+            {
+              "tool": "assets_trace_relationships",
+              "reason": "Understand asset dependencies and relationships",
+              "confidence": "medium",
+              "parameters": {
+                "object_id": "{target_asset_id}",
+                "depth": 2
+              }
+            },
+            {
+              "tool": "assets_update",
+              "reason": "Apply necessary updates to asset properties",
+              "confidence": "high",
+              "parameters": {
+                "id": "{target_asset_id}",
+                "data": "{update_payload}"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

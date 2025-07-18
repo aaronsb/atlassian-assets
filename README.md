@@ -1,69 +1,59 @@
-# Atlassian Assets CLI
+# Atlassian Assets CLI & MCP Server
 
-A command-line tool for managing Atlassian Assets, designed as a prototype for an MCP (Model Context Protocol) interface for AI agents.
+A dual-purpose tool for managing Atlassian Assets through both CLI and MCP (Model Context Protocol) interfaces, enabling both human operators and AI agents to manage assets programmatically.
 
 ## Overview
 
-This project provides CRUD operations for Atlassian Assets through a clean CLI interface. The CLI is designed to translate naturally to MCP tools, enabling AI agents to manage assets programmatically.
+This project provides CRUD operations for Atlassian Assets through two interfaces:
+1. **CLI Interface**: Direct command-line tool for human operators
+2. **MCP Server**: AI agent interface via Model Context Protocol
+
+Both interfaces share the same underlying codebase, ensuring consistency and reducing maintenance overhead.
 
 ## Features
 
-- **✅ Complete CRUD Operations**: Create, read, update, and delete assets with intelligent workflows
-- **✅ Dual Search System**: Simple exact-match search and advanced AQL query search with full pagination  
+- **✅ Dual Interface**: CLI commands and MCP tools share common functionality
+- **✅ 13 MCP Tools**: Complete AI agent interface with intelligent guidance
+- **✅ 24+ CLI Commands**: Specialized commands for asset management and discovery
+- **✅ Complete CRUD Operations**: Create, read, update, and delete assets
+- **✅ Dual Search System**: Simple exact-match search and advanced AQL query search
 - **✅ Schema Management**: List schemas, get schema details, and explore object types
-- **✅ Advanced Workflows**: 24+ specialized commands for asset management, discovery, and automation
-- **✅ Pagination Support**: Handle large datasets with `--limit` and `--offset` on search and list operations
+- **✅ Pagination Support**: Handle large datasets with configurable limits
 - **✅ SDK Bug Fixes**: Direct HTTP implementation bypassing broken go-atlassian SDK methods
 - **✅ Contextual Hints**: Intelligent guidance system for streamlined workflows
+- **✅ AI-Specific Guidance**: Context-aware suggestions for AI agents
 - **✅ Version Management**: Proper semantic versioning with build-time injection
 - **✅ Multiple Output Formats**: JSON, YAML, and table output
-- **✅ MCP-Ready Design**: CLI commands map directly to future MCP tools
 
 ## Quick Start
 
-### 🚀 Super Simple Build (No Go Experience Required)
+### 🚀 Build Both CLI and MCP Server
 
 ```bash
-# Clone and build in one go
+# Clone and build
 git clone https://github.com/aaronsb/atlassian-assets
 cd atlassian-assets
 ./build.sh
+
+# Or manual build
+go build -o bin/assets ./cmd/assets          # CLI tool
+go build -o mcp-server ./cmd/assets/mcp      # MCP server
 ```
 
-The build script will:
-- ✅ Check if Go is installed (and guide you if not)
-- ✅ Download dependencies 
-- ✅ Run tests
-- ✅ Build the binary
-- ✅ Offer to install to your system
-
-### 🛠️ Advanced Build (For Developers)
-
-```bash
-# Using Makefile (more options)
-make help           # See all build options
-make build          # Interactive build with options
-make test           # Run all tests
-make build-release VERSION=v1.0.0  # Release build
-
-# Manual build
-go build -o bin/assets ./cmd/assets
-```
-
-## Configuration
+### 🔧 Configuration
 
 Create a `.env` file with your Atlassian credentials:
 
 ```bash
-ATLASSIAN_EMAIL=your.email@company.com
-ATLASSIAN_HOST=https://yourcompany.atlassian.net
-ATLASSIAN_API_TOKEN=your-api-token
+ATLASSIAN_ASSETS_EMAIL=your.email@company.com
+ATLASSIAN_ASSETS_HOST=yourcompany.atlassian.net
+ATLASSIAN_ASSETS_API_TOKEN=your-api-token
 ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 ```
 
-## Complete Command Reference
+## CLI Interface
 
-### 🔧 Core CRUD Operations
+### Core CRUD Operations
 
 ```bash
 # Create assets with intelligent workflow
@@ -80,10 +70,9 @@ ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 
 # Delete assets (with safety controls)
 ./bin/assets delete --id OBJ-123
-./bin/assets remove --attribute "old-field" --from OBJ-123
 ```
 
-### 🔍 Advanced Search & Discovery
+### Advanced Search & Discovery
 
 ```bash
 # Simple search with pagination
@@ -94,12 +83,12 @@ ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 ./bin/assets search --query "Name = \"MacBook Pro\" AND Status = \"Active\""
 
 # Browse and explore  
-./bin/assets browse --schema computers
+./bin/assets browse hierarchy --schema computers
 ./bin/assets catalog --global-objects
-./bin/assets trace --object OBJ-123 --depth 2
+./bin/assets trace dependencies --object-type 65 --schema 8
 ```
 
-### 📊 Schema & Metadata Management
+### Schema & Metadata Management
 
 ```bash
 # Schema operations
@@ -109,81 +98,168 @@ ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 
 # Attribute management
 ./bin/assets attributes --schema computers
-./bin/assets copy-attributes --from laptop --to workstation
 ./bin/assets extract --schema computers --format csv
 ```
 
-### 🤖 Intelligent Workflows
+## MCP Server Interface
 
-```bash
-# Smart completion and validation
-./bin/assets complete --schema computers --type laptop
-./bin/assets validate --id OBJ-123 --strict
+### Available MCP Tools
 
-# Bulk operations and automation
-./bin/assets apply --attribute "Status:Active" --to-schema computers
-./bin/assets workflows --list
-./bin/assets summary --schema computers --analytics
+The MCP server provides 13 tools with AI-specific guidance:
+
+| MCP Tool | Purpose | CLI Equivalent |
+|----------|---------|----------------|
+| `assets_list_schemas` | List all available schemas | `schema list` |
+| `assets_search` | Search for assets with dual modes | `search` |
+| `assets_list` | List objects with pagination | `list` |
+| `assets_get` | Get detailed object information | `get` |
+| `assets_create_object` | Create new asset instances | `create` |
+| `assets_delete` | Delete objects with validation | `delete` |
+| `assets_get_schema` | Get schema details | `schema get` |
+| `assets_create_object_type` | Create new object types | `schema create-type` |
+| `assets_get_object_type_attributes` | Get object type structure | `attributes` |
+| `assets_browse_schema` | Intelligent schema exploration | `browse hierarchy` |
+| `assets_validate` | Object validation against requirements | `validate` |
+| `assets_complete_object` | Intelligent object completion | `complete` |
+| `assets_trace_relationships` | Trace object dependencies | `trace dependencies` |
+
+### Claude Desktop Configuration
+
+Add to your `~/.config/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "atlassian-assets": {
+      "command": "/path/to/mcp-server",
+      "args": [],
+      "env": {
+        "ATLASSIAN_ASSETS_EMAIL": "your.email@company.com",
+        "ATLASSIAN_ASSETS_HOST": "yourcompany.atlassian.net",
+        "ATLASSIAN_ASSETS_API_TOKEN": "your-api-token",
+        "ATLASSIAN_ASSETS_WORKSPACE_ID": "your-workspace-id"
+      },
+      "disabled": false,
+      "transportType": "stdio",
+      "autoApprove": [
+        "assets_list_schemas",
+        "assets_search", 
+        "assets_get",
+        "assets_browse_schema",
+        "assets_get_schema",
+        "assets_get_object_type_attributes"
+      ]
+    }
+  }
+}
 ```
 
-### ⚙️ System & Configuration
+### Claude Code Configuration
+
+Add the MCP server to your Claude Code environment:
 
 ```bash
-# Configuration management
-./bin/assets config show
-./bin/assets config test
-./bin/assets version --output json
+# Add server to Claude Code
+claude mcp add atlassian-assets /path/to/mcp-server
 
-# Environment testing
-./bin/assets test --connection
-./bin/assets resolve --name "MacBook Pro" --to-id
+# List registered servers
+claude mcp list
+
+# Remove server (if needed)
+claude mcp remove atlassian-assets
+```
+
+### Other MCP Clients
+
+For any JSON-based MCP client, use this configuration pattern:
+
+```json
+{
+  "atlassian-assets": {
+    "command": "/path/to/mcp-server",
+    "env": {
+      "ATLASSIAN_ASSETS_EMAIL": "your.email@company.com",
+      "ATLASSIAN_ASSETS_HOST": "yourcompany.atlassian.net", 
+      "ATLASSIAN_ASSETS_API_TOKEN": "your-api-token",
+      "ATLASSIAN_ASSETS_WORKSPACE_ID": "your-workspace-id"
+    }
+  }
+}
 ```
 
 ## Architecture
 
-### CLI → MCP Translation
+### Dual Interface Design
 
-The CLI is designed for natural translation to MCP tools:
-
-| CLI Command | MCP Tool Name | Purpose |
-|-------------|---------------|---------|
-| `assets create` | `assets_create` | Create new assets |
-| `assets list` | `assets_list` | List assets |
-| `assets get` | `assets_get` | Get asset details |
-| `assets update` | `assets_update` | Update assets |
-| `assets delete` | `assets_delete` | Delete assets |
-| `assets search` | `assets_search` | Search assets |
+```
+┌─────────────────┐    ┌─────────────────┐
+│   CLI Commands  │    │   MCP Tools     │
+│   (Human UI)    │    │   (AI Interface)│
+└─────────┬───────┘    └─────────┬───────┘
+          │                      │
+          └──────────┬───────────┘
+                     │
+         ┌───────────▼───────────┐
+         │   Common Package      │
+         │  ┌─────────────────┐  │
+         │  │   Foundation    │  │  # Core CRUD operations
+         │  │   (objects.go)  │  │
+         │  └─────────────────┘  │
+         │  ┌─────────────────┐  │
+         │  │   Composite     │  │  # Intelligent workflows
+         │  │   (browse.go)   │  │
+         │  └─────────────────┘  │
+         └───────────────────────┘
+                     │
+         ┌───────────▼───────────┐
+         │   Atlassian Assets    │
+         │      API Client       │
+         └───────────────────────┘
+```
 
 ### Project Structure
 
 ```
-├── cmd/assets/          # CLI entry point and commands
+├── cmd/assets/                  # CLI entry point
+│   ├── main.go                  # CLI commands
+│   ├── common/                  # Shared functionality
+│   │   ├── foundation/          # Core CRUD operations
+│   │   ├── composite/           # Intelligent workflows
+│   │   └── types.go             # Common interfaces
+│   └── mcp/                     # MCP server
+│       └── main.go              # MCP tool handlers
 ├── internal/
-│   ├── client/          # Atlassian API client wrapper
-│   └── config/          # Configuration management
-├── pkg/assets/          # Public API (future MCP interface)
-└── requirements.md      # Requirements tracking
+│   ├── client/                  # Atlassian API client
+│   ├── config/                  # Configuration management
+│   └── hints/                   # AI & CLI guidance systems
+├── reference/claude/            # Claude development guidelines
+└── .claude-github/              # GitHub integration files
 ```
 
 ## Development Status
 
-### ✅ Production Ready Features (v0.1.0)
+### ✅ Production Features (v1.0.0)
 
-- **Complete CLI Framework**: 24+ specialized commands with Cobra
-- **Advanced Search & Pagination**: Dual search modes with full pagination support
-- **Intelligent Workflows**: Contextual hints and guided asset management
-- **SDK Bug Fixes**: Direct HTTP implementation bypassing broken go-atlassian methods
-- **Comprehensive CRUD**: Create, Read, Update, Delete with safety controls
+- **Dual Interface**: CLI and MCP server with shared codebase
+- **Complete CRUD**: All asset management operations
+- **Advanced Search**: Dual search modes with full pagination
 - **Schema Management**: Full schema and object type operations
+- **AI Integration**: 13 MCP tools with context-aware guidance
+- **SDK Bug Fixes**: Direct HTTP implementation bypassing broken SDK methods
+- **Intelligent Workflows**: Contextual hints and guided operations
 - **Version Management**: Semantic versioning with build-time injection
+- **Authentication**: Environment variable and .env file support
 - **Live Testing**: Validated against real Atlassian Assets environment
-- **Build Automation**: Simple and advanced build systems for all skill levels
 
-### 🚀 Next Phase (v0.2.0) 
+### 🚀 Future Enhancements
 
-- **MCP Server Mode**: `--mcp-server` flag for stdio MCP protocol
-- **AI Agent Interface**: All CLI commands as MCP tools 
-- **Automated Workflows**: AI-driven asset management and discovery
+See our [GitHub Issues](https://github.com/aaronsb/atlassian-assets/issues) for planned improvements:
+
+- **Response Size Management**: Pagination and filtering recommendations (#6)
+- **Named Object Resolution**: Human-readable object references (#7)
+- **Enhanced Error Handling**: Structured error recovery (#8)
+- **Automated Testing**: Unit and integration test suites (#11)
+- **Logging & Monitoring**: Production-grade observability (#10)
 
 ## Important Notes
 
@@ -191,30 +267,36 @@ The CLI is designed for natural translation to MCP tools:
 
 **⚠️ Critical Bug Fixed**: The go-atlassian SDK v2.6.1 has a broken `Object.Filter()` method that makes AQL searches non-functional. This project includes a **direct HTTP implementation** that bypasses the broken SDK method.
 
-**Impact**: Without this fix, `assets search` and `assets list` commands would return empty results despite objects existing.
+**Impact**: Without this fix, search and list operations would return empty results.
 
-**Solution**: See `SDK_FIX_DOCUMENTATION.md` for complete technical details, including:
-- Root cause analysis proving SDK is broken
-- Working direct HTTP replacement implementation  
-- Validation results showing fix success
-- GitHub issue #387 filed with upstream maintainers
+**Solution**: See `SDK_FIX_DOCUMENTATION.md` for complete technical details.
 
 **Upstream Issue**: https://github.com/ctreminiom/go-atlassian/issues/387
 
-**Status**: Both search and list operations now work perfectly and return complete object data.
+### MCP vs CLI Differences
+
+| Feature | CLI Interface | MCP Interface |
+|---------|---------------|---------------|
+| **User Type** | Human operators | AI agents |
+| **Output** | Human-readable with next steps | Structured data with AI guidance |
+| **Error Handling** | User-friendly messages | Structured error responses |
+| **Workflow Hints** | CLI-specific suggestions | AI-specific context and recommendations |
+| **Response Size** | Full details | Optimized for context management |
+| **Authentication** | .env file or flags | Environment variables only |
 
 ## Contributing
 
-This project follows a structured development approach with requirements tracking:
+This project follows structured development with GitHub integration:
 
-1. See `requirements.md` for user stories and acceptance criteria
-2. See `design.md` for architecture decisions
-3. See `tasks.md` for implementation plan
-
-## Author
-
-Aaron Bockelie
+1. **Requirements**: GitHub Issues with `requirement` label
+2. **Tasks**: GitHub Milestones for major features
+3. **Sub-tasks**: GitHub Issues with `task` label
+4. **Guidelines**: See `reference/claude/USER_SCOPE_CLAUDE.md`
 
 ## License
 
 MIT License
+
+## Author
+
+Aaron Bockelie
