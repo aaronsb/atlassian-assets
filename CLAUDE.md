@@ -109,7 +109,7 @@ This allows MCP clients to query the server version programmatically.
 
 ### Documentation Standards
 - Update README.md for user-facing changes
-- Update SDK_FIX_DOCUMENTATION.md for technical issues
+- Update ./docs/architecture/sdk-fix-documentation.md for technical issues
 - Maintain this CLAUDE.md for project-specific workflows
 - Document limitations and workarounds clearly
 

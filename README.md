@@ -2,6 +2,19 @@
 
 A dual-purpose tool for managing Atlassian Assets through both CLI and MCP (Model Context Protocol) interfaces, enabling both human operators and AI agents to manage assets programmatically.
 
+## 📖 Documentation
+
+Comprehensive documentation is available in the **[/docs](./docs)** directory with organized sections for different user needs:
+
+- **[Use Cases](./docs/use-cases/)** - Real-world examples and scenarios 
+- **[Integration Guides](./docs/guides/)** - Setup and configuration
+- **[Examples](./docs/examples/)** - Practical implementation patterns  
+- **[Architecture](./docs/architecture/)** - Technical deep-dives and system design
+- **[API Reference](./docs/api/)** - Complete tool and command documentation
+- **[Screenshots](./docs/screenshots/)** - Visual examples of Claude Desktop integration
+
+👉 **[Start with the documentation overview](./docs/README.md)** for guided navigation
+
 ## Overview
 
 This project provides CRUD operations for Atlassian Assets through two interfaces:
@@ -269,7 +282,7 @@ See our [GitHub Issues](https://github.com/aaronsb/atlassian-assets/issues) for 
 
 **Impact**: Without this fix, search and list operations would return empty results.
 
-**Solution**: See `SDK_FIX_DOCUMENTATION.md` for complete technical details.
+**Solution**: See `./docs/architecture/sdk-fix-documentation.md` for complete technical details.
 
 **Upstream Issue**: https://github.com/ctreminiom/go-atlassian/issues/387
 
