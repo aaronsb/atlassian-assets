@@ -9,16 +9,40 @@ This project provides CRUD operations for Atlassian Assets through a clean CLI i
 ## Features
 
 - **Complete CRUD Operations**: Create, read, update, and delete assets
+- **Dual Search Modes**: Simple exact-match search and advanced AQL query search
 - **Schema Management**: List schemas, get schema details, and explore object types
 - **Configuration Management**: Profile-based configuration with environment variable support
 - **Multiple Output Formats**: JSON, YAML, and table output
 - **MCP-Ready Design**: CLI commands map directly to future MCP tools
 
-## Installation
+## Quick Start
+
+### 🚀 Super Simple Build (No Go Experience Required)
 
 ```bash
+# Clone and build in one go
 git clone https://github.com/aaronsb/atlassian-assets
 cd atlassian-assets
+./build.sh
+```
+
+The build script will:
+- ✅ Check if Go is installed (and guide you if not)
+- ✅ Download dependencies 
+- ✅ Run tests
+- ✅ Build the binary
+- ✅ Offer to install to your system
+
+### 🛠️ Advanced Build (For Developers)
+
+```bash
+# Using Makefile (more options)
+make help           # See all build options
+make build          # Interactive build with options
+make test           # Run all tests
+make build-release VERSION=v1.0.0  # Release build
+
+# Manual build
 go build -o bin/assets ./cmd/assets
 ```
 
@@ -62,8 +86,10 @@ ATLASSIAN_ASSETS_WORKSPACE_ID=your-workspace-id
 # Delete an asset
 ./bin/assets delete --id OBJ-123
 
-# Search assets
-./bin/assets search --query "Name like 'MacBook%'"
+# Search assets with dual search modes
+./bin/assets search --simple "Blue Barn #2"                # Simple exact match
+./bin/assets search --simple "*" --schema 3                # All objects in schema
+./bin/assets search --query "Name = \"Blue Barn #2\""       # Advanced AQL search
 ```
 
 ### Schema Management

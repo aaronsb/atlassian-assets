@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/aaronsb/atlassian-assets/internal/client"
 	"github.com/aaronsb/atlassian-assets/internal/validation"
 )
 
@@ -150,22 +152,61 @@ func runUpdateCmd(cmd *cobra.Command, args []string) error {
 var searchCmd = &cobra.Command{
 	Use:   "search",
 	Short: "Search for asset objects",
-	Long: `Search for asset objects using AQL (Assets Query Language).
-	
-AQL allows for complex queries across multiple schemas and object types.`,
-	Example: `  # Search for assets
-  assets search --query "Name like 'MacBook%' AND Owner = 'john.doe'"`,
+	Long: `Search for asset objects using either simple search terms or AQL (Assets Query Language).
+
+Simple search provides exact matching for Name and Key fields.
+AQL allows for complex queries across multiple schemas and object types.
+
+Simple search patterns (exact matches only due to AQL limitations):
+  term       - Exact match: Name or Key equals "term"
+  ^exact$    - Exact match: Name or Key equals "exact"
+  =value     - Exact match: Name or Key equals "value"
+  *          - Wildcard match all objects in schema/filters
+
+Note: Partial matching (contains/starts with/ends with) is not available 
+due to AQL LIKE query limitations in the current environment.`,
+	Example: `  # Simple searches (exact matches only)
+  assets search --simple "Blue Barn #2"              # Exact name match
+  assets search --simple "COMPUTE-1020"              # Exact key match
+  assets search --simple "^Blue Barn #2$"            # Exact match with anchors
+  assets search --simple "=Red Barn #1"              # Explicit exact match  
+  assets search --simple "*" --schema 3              # All objects in schema
+  assets search --simple "*" --type "Barns"          # All objects of type
+  assets search --simple "john.doe" --schema 3       # Exact owner match
+  
+  # Advanced AQL searches
+  assets search --query "Name like \"MacBook%\" AND Owner = \"john.doe\""
+  assets search --query "objectSchemaId = 3 AND Status = \"Active\""`,
 	RunE: runSearchCmd,
 }
 
-var searchQuery string
+var (
+	searchQuery  string
+	searchSimple string
+	searchSchema string
+	searchType   string
+	searchStatus string
+	searchOwner  string
+)
 
 func init() {
-	searchCmd.Flags().StringVar(&searchQuery, "query", "", "AQL search query (required)")
-	searchCmd.MarkFlagRequired("query")
+	searchCmd.Flags().StringVar(&searchQuery, "query", "", "AQL search query")
+	searchCmd.Flags().StringVar(&searchSimple, "simple", "", "Simple search term (searches name, key, and description)")
+	searchCmd.Flags().StringVar(&searchSchema, "schema", "", "Limit search to specific schema (ID or name)")
+	searchCmd.Flags().StringVar(&searchType, "type", "", "Limit search to specific object type")
+	searchCmd.Flags().StringVar(&searchStatus, "status", "", "Filter by status (Active, Inactive, etc.)")
+	searchCmd.Flags().StringVar(&searchOwner, "owner", "", "Filter by owner/assignee")
+	
+	// Make search mutually exclusive - either query OR simple + optional filters
+	searchCmd.MarkFlagsMutuallyExclusive("query", "simple")
 }
 
 func runSearchCmd(cmd *cobra.Command, args []string) error {
+	// Validate that either query or simple is provided
+	if searchQuery == "" && searchSimple == "" {
+		return fmt.Errorf("either --query or --simple must be provided")
+	}
+
 	client, err := getClient()
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
@@ -175,19 +216,155 @@ func runSearchCmd(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	limit := 50
 	
-	response, err := client.SearchObjects(ctx, searchQuery, limit)
+	// Build AQL query based on input type
+	var finalQuery string
+	var queryType string
+	
+	if searchQuery != "" {
+		// Use direct AQL query
+		finalQuery = searchQuery
+		queryType = "aql"
+	} else {
+		// Build AQL from simple search terms
+		finalQuery, err = buildSimpleSearchQuery(searchSimple, searchSchema, searchType, searchStatus, searchOwner)
+		if err != nil {
+			return fmt.Errorf("failed to build search query: %w", err)
+		}
+		queryType = "simple"
+	}
+	
+	response, err := client.SearchObjects(ctx, finalQuery, limit)
 	if err != nil {
 		return fmt.Errorf("failed to search objects: %w", err)
 	}
 
 	// Add contextual hints
 	enhancedResponse := addNextStepHints(response, "search_objects", map[string]interface{}{
-		"search_query": searchQuery,
-		"success":      response.Success,
-		"has_results":  true, // TODO: Check actual result count
+		"search_query":     finalQuery,
+		"query_type":       queryType,
+		"simple_term":      searchSimple,
+		"search_filters":   buildFilterSummary(),
+		"success":          response.Success,
+		"has_results":      getResultCount(response) > 0,
 	})
 
 	return outputResult(enhancedResponse)
+}
+
+// buildSimpleSearchQuery converts simple search terms into AQL with regex-inspired filters
+func buildSimpleSearchQuery(term, schema, objectType, status, owner string) (string, error) {
+	var conditions []string
+	
+	// Add schema filter if provided
+	if schema != "" {
+		conditions = append(conditions, fmt.Sprintf("objectSchemaId = %s", schema))
+	}
+	
+	// Add object type filter if provided
+	if objectType != "" {
+		conditions = append(conditions, fmt.Sprintf("objectType = \"%s\"", objectType))
+	}
+	
+	// Add status filter if provided
+	if status != "" {
+		conditions = append(conditions, fmt.Sprintf("Status = \"%s\"", status))
+	}
+	
+	// Add owner filter if provided
+	if owner != "" {
+		conditions = append(conditions, fmt.Sprintf("Owner = \"%s\"", owner))
+	}
+	
+	// Add simple term search with regex-inspired patterns
+	if term != "" {
+		termCondition := buildTermSearchCondition(term)
+		conditions = append(conditions, termCondition)
+	}
+	
+	// If no conditions, return error
+	if len(conditions) == 0 {
+		return "", fmt.Errorf("no search conditions provided")
+	}
+	
+	// Combine all conditions with AND
+	query := conditions[0]
+	for _, cond := range conditions[1:] {
+		query += " AND " + cond
+	}
+	
+	return query, nil
+}
+
+// buildTermSearchCondition creates AQL search condition with basic patterns (LIKE queries are non-functional)
+func buildTermSearchCondition(term string) string {
+	// Determine search pattern based on term format
+	var nameCondition, keyCondition string
+	
+	switch {
+	case term == "*":
+		// Wildcard - match all non-empty values
+		return "(Name != \"\" OR Key != \"\")"
+		
+	case strings.HasPrefix(term, "^") && strings.HasSuffix(term, "$"):
+		// Exact match: ^exact$ -> exact match
+		exactTerm := strings.TrimSuffix(strings.TrimPrefix(term, "^"), "$")
+		nameCondition = fmt.Sprintf("Name = \"%s\"", exactTerm)
+		keyCondition = fmt.Sprintf("Key = \"%s\"", exactTerm)
+		
+	case strings.HasPrefix(term, "="):
+		// Exact match: =value -> exact match
+		exactTerm := strings.TrimPrefix(term, "=")
+		nameCondition = fmt.Sprintf("Name = \"%s\"", exactTerm)
+		keyCondition = fmt.Sprintf("Key = \"%s\"", exactTerm)
+		
+	default:
+		// Default: exact match only (LIKE queries don't work in this AQL implementation)
+		// This is a limitation - partial matches are not supported
+		nameCondition = fmt.Sprintf("Name = \"%s\"", term)
+		keyCondition = fmt.Sprintf("Key = \"%s\"", term)
+	}
+	
+	// Return combined condition
+	return fmt.Sprintf("(%s OR %s)", nameCondition, keyCondition)
+}
+
+// buildFilterSummary creates a summary of active filters for hints
+func buildFilterSummary() map[string]string {
+	filters := make(map[string]string)
+	
+	if searchSchema != "" {
+		filters["schema"] = searchSchema
+	}
+	if searchType != "" {
+		filters["type"] = searchType
+	}
+	if searchStatus != "" {
+		filters["status"] = searchStatus
+	}
+	if searchOwner != "" {
+		filters["owner"] = searchOwner
+	}
+	
+	return filters
+}
+
+// getResultCount extracts result count from response  
+func getResultCount(response *client.Response) int {
+	if !response.Success || response.Data == nil {
+		return 0
+	}
+	
+	data, ok := response.Data.(map[string]interface{})
+	if !ok {
+		return 0
+	}
+	
+	total, ok := data["total"].(int)
+	if !ok {
+		return 0
+	}
+	
+	return total
 }
 
 // ATTRIBUTES command

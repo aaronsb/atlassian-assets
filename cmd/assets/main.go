@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/aaronsb/atlassian-assets/internal/config"
 	"github.com/aaronsb/atlassian-assets/internal/client"
+	"github.com/aaronsb/atlassian-assets/internal/version"
 )
 
 var (
@@ -19,13 +20,16 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "assets",
-	Short: "Atlassian Assets CLI tool",
-	Long: `A command-line tool for managing Atlassian Assets.
+	Use:     "assets",
+	Short:   "Atlassian Assets CLI tool",
+	Version: version.GetInfo().Short(),
+	Long: fmt.Sprintf(`A command-line tool for managing Atlassian Assets.
 	
 This tool provides CRUD operations for Atlassian Assets and is designed
 to serve as a prototype for an MCP (Model Context Protocol) interface
-for AI agents.`,
+for AI agents.
+
+Version: %s`, version.GetInfo().Short()),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

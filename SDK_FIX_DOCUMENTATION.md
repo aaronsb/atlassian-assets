@@ -263,3 +263,28 @@ Both commands include debug logging that shows:
 ## Impact
 
 This fix restores critical search and list functionality that was completely broken due to the SDK bug. Both `assets search` and `assets list` commands now work reliably and return complete object data as expected.
+
+## Additional AQL Limitation Discovered
+
+During implementation of the dual search functionality, we discovered that **AQL LIKE queries are non-functional** in the current Atlassian Assets environment. This affects partial matching capabilities:
+
+### What Works:
+- Exact matches: `Name = "Blue Barn #2"`
+- Schema/Type filters: `objectSchemaId = 3`
+- Status filters: `Status = "Active"`
+- Wildcard queries using inequality: `Name != ""`
+
+### What Doesn't Work:
+- Partial matches: `Name like "%Blue%"`
+- Starts with: `Name like "Blue%"`
+- Ends with: `Name like "%Barn"`
+- Case-insensitive searches with LIKE
+
+### Impact on Simple Search:
+The simple search functionality has been adapted to work within these constraints:
+- `=exact` - Exact match (works)
+- `^exact$` - Exact match with anchors (works)
+- `*` - Match all objects (works using `Name != ""`)
+- Partial patterns - **Not supported** due to LIKE limitation
+
+This limitation affects user experience but exact matching still provides useful search capabilities for known object names and keys.
