@@ -494,6 +494,50 @@
         }
       ]
     },
+    "icon_list": {
+      "hints": [
+        {
+          "condition": "always",
+          "message": "💡 Search for specific icons: `assets icons list --search \"computer\"`",
+          "priority": "medium",
+          "category": "usage"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Get icon suggestions for a type: `assets icons suggest \"AI Workstation\"`",
+          "priority": "medium",
+          "category": "discovery"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Use icon ID when creating types: `assets schema create-type --icon 143`",
+          "priority": "medium",
+          "category": "next_steps"
+        }
+      ]
+    },
+    "icon_suggest": {
+      "hints": [
+        {
+          "condition": "suggested_icon_id",
+          "message": "💡 Create object type with suggested icon: `assets schema create-type --icon {suggested_icon_id} --name \"{type_name}\" --schema {schema_id}`",
+          "priority": "high",
+          "category": "next_steps"
+        },
+        {
+          "condition": "always",
+          "message": "💡 View all available icons: `assets icons list`",
+          "priority": "low",
+          "category": "discovery"
+        },
+        {
+          "condition": "always",
+          "message": "💡 Try different search terms for more suggestions: `assets icons suggest \"network device\"`",
+          "priority": "low",
+          "category": "usage"
+        }
+      ]
+    },
     "remove_property": {
       "hints": [
         {
