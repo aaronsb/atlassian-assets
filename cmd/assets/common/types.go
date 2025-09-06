@@ -82,6 +82,15 @@ type TraceRelationshipsParams struct {
 	Depth    int    // Relationship depth
 }
 
+type ListIconsParams struct {
+	Search string // Search term for filtering icons
+	Limit  int    // Maximum number of icons to return
+}
+
+type SuggestIconsParams struct {
+	TypeName string // Asset type name to get suggestions for
+}
+
 // Response wrapper for consistent output
 type Response struct {
 	Success bool        `json:"success"`
