@@ -225,6 +225,31 @@ func registerTools(server *mcp.Server) {
 			Required: []string{"object_id"},
 		},
 	}, handleTraceRelationshipsTool)
+	
+	// Icon management tools
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "assets_list_icons",
+		Description: "List available icons for asset types",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"search": {Type: "string", Description: "Search term to filter icons by name"},
+				"limit": {Type: "integer", Description: "Maximum number of icons to return (default: 50)"},
+			},
+		},
+	}, handleListIconsTool)
+	
+	mcp.AddTool(server, &mcp.Tool{
+		Name: "assets_suggest_icons",
+		Description: "Get smart icon suggestions for an asset type name",
+		InputSchema: &jsonschema.Schema{
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"type_name": {Type: "string", Description: "Asset type name to get icon suggestions for"},
+			},
+			Required: []string{"type_name"},
+		},
+	}, handleSuggestIconsTool)
 }
 
 // Register resources
@@ -703,6 +728,92 @@ type ResponseWithHints struct {
 func formatResponse(response *ResponseWithHints) string {
 	jsonData, _ := json.MarshalIndent(response, "", "  ")
 	return string(jsonData)
+}
+
+// Icon tool handlers
+func handleListIconsTool(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]interface{}]) (*mcp.CallToolResult, error) {
+	// Use the parsed arguments directly
+	args := params.Arguments
+	
+	// Parse parameters
+	iconParams := common.ListIconsParams{
+		Limit: 50, // Default limit
+	}
+	
+	if search, ok := args["search"].(string); ok {
+		iconParams.Search = search
+	}
+	if limit, ok := args["limit"].(float64); ok {
+		iconParams.Limit = int(limit)
+	}
+	
+	// Execute the list icons function
+	response, err := foundation.ListIcons(assetsClient, iconParams)
+	if err != nil {
+		responseStr := formatResponse(&ResponseWithHints{Response: common.NewErrorResponse(err)})
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: responseStr},
+			},
+		}, nil
+	}
+	
+	// Add AI guidance context
+	context := map[string]interface{}{
+		"search": iconParams.Search,
+		"limit":  iconParams.Limit,
+	}
+	responseWithGuidance := addAIGuidance(response, "assets_list_icons", context)
+	
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: formatResponse(responseWithGuidance)},
+		},
+	}, nil
+}
+
+func handleSuggestIconsTool(ctx context.Context, ss *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]interface{}]) (*mcp.CallToolResult, error) {
+	// Use the parsed arguments directly
+	args := params.Arguments
+	
+	// Parse parameters
+	iconParams := common.SuggestIconsParams{}
+	
+	if typeName, ok := args["type_name"].(string); ok {
+		iconParams.TypeName = typeName
+	} else {
+		responseStr := formatResponse(&ResponseWithHints{
+			Response: common.NewErrorResponse(fmt.Errorf("type_name parameter is required")),
+		})
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: responseStr},
+			},
+		}, nil
+	}
+	
+	// Execute the suggest icons function
+	response, err := foundation.SuggestIcons(assetsClient, iconParams)
+	if err != nil {
+		responseStr := formatResponse(&ResponseWithHints{Response: common.NewErrorResponse(err)})
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: responseStr},
+			},
+		}, nil
+	}
+	
+	// Add AI guidance context
+	context := map[string]interface{}{
+		"type_name": iconParams.TypeName,
+	}
+	responseWithGuidance := addAIGuidance(response, "assets_suggest_icons", context)
+	
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			&mcp.TextContent{Text: formatResponse(responseWithGuidance)},
+		},
+	}, nil
 }
 
 // Main function
